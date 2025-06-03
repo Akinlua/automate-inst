@@ -1,0 +1,785 @@
+#!/usr/bin/env python3
+"""
+Instagram Auto Poster Web Interface
+Beautiful Flask web application for managing Instagram posting
+"""
+
+import os
+import csv
+import json
+import shutil
+from datetime import datetime
+from pathlib import Path
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_from_directory
+from werkzeug.utils import secure_filename
+from instagram_poster import InstagramPoster
+
+app = Flask(__name__)
+app.secret_key = 'your-secret-key-here'  # Change this in production
+
+# Configuration
+UPLOAD_FOLDER = Path('content')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_CSV_EXTENSIONS = {'csv'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+def get_month_stats(month_num):
+    """Get statistics for a specific month"""
+    month_folder = UPLOAD_FOLDER / str(month_num)
+    
+    stats = {
+        'month': month_num,
+        'images': 0,
+        'captions': 0,
+        'posts_available': 0,
+        'posts_used': 0,
+        'images_used': 0,
+        'last_post': None
+    }
+    
+    if not month_folder.exists():
+        return stats
+    
+    # Count images
+    image_files = [f for f in month_folder.iterdir() 
+                   if f.is_file() and f.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp', '.gif'}]
+    stats['images'] = len(image_files)
+    
+    # Count captions from CSV
+    csv_file = None
+    for file in month_folder.iterdir():
+        if file.is_file() and file.suffix.lower() == '.csv':
+            csv_file = file
+            break
+    
+    if csv_file:
+        try:
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                captions = []
+                for row in reader:
+                    if row and len(row) >= 2 and row[1].strip():
+                        captions.append(row[1].strip())
+                stats['captions'] = len(captions)
+        except:
+            stats['captions'] = 0
+    
+    # Get usage stats from posted content
+    poster = InstagramPoster()
+    month_key = f"month_{month_num}"
+    posted_data = poster.posted_content.get(month_key, {})
+    
+    stats['posts_used'] = len(posted_data.get('used_posts', []))
+    stats['images_used'] = len(posted_data.get('used_images', []))
+    stats['posts_available'] = stats['captions'] - stats['posts_used']
+    
+    # Last post info
+    post_history = posted_data.get('post_history', [])
+    if post_history:
+        last_post = post_history[-1]
+        stats['last_post'] = datetime.fromisoformat(last_post['posted_at']).strftime('%Y-%m-%d %H:%M')
+    
+    return stats
+
+@app.route('/')
+def index():
+    """Main dashboard"""
+    month_names = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ]
+    
+    months_data = []
+    for i in range(1, 13):
+        stats = get_month_stats(i)
+        stats['name'] = month_names[i-1]
+        months_data.append(stats)
+    
+    current_month = datetime.now().month
+    
+    # Get scheduler errors
+    poster = InstagramPoster()
+    scheduler_errors = poster.get_scheduler_errors()
+    
+    return render_template('index.html', 
+                         months=months_data, 
+                         current_month=current_month,
+                         scheduler_errors=scheduler_errors)
+
+@app.route('/month/<int:month_num>')
+def month_detail(month_num):
+    """Month detail page"""
+    if month_num < 1 or month_num > 12:
+        flash('Invalid month number', 'error')
+        return redirect(url_for('index'))
+    
+    month_names = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ]
+    
+    month_folder = UPLOAD_FOLDER / str(month_num)
+    month_folder.mkdir(exist_ok=True)
+    
+    # Get posted content info
+    poster = InstagramPoster()
+    month_key = f"month_{month_num}"
+    posted_data = poster.posted_content.get(month_key, {})
+    used_images = set(posted_data.get('used_images', []))
+    used_posts = set(posted_data.get('used_posts', []))
+    
+    # Get images using the new ordering system
+    ordered_image_names = poster.get_month_image_order(month_num)
+    images = []
+    for image_name in ordered_image_names:
+        image_info = {
+            'name': image_name,
+            'is_used': image_name in used_images
+        }
+        images.append(image_info)
+    
+    # Get captions from CSV
+    captions = []
+    csv_file = None
+    for file in month_folder.iterdir():
+        if file.is_file() and file.suffix.lower() == '.csv':
+            csv_file = file
+            break
+    
+    if csv_file:
+        try:
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if row and len(row) >= 2 and row[1].strip():
+                        caption_info = {
+                            'id': row[0], 
+                            'text': row[1].strip(),
+                            'index': len(captions),  # For display order
+                            'is_used': row[0] in used_posts
+                        }
+                        captions.append(caption_info)
+        except Exception as e:
+            flash(f'Error reading CSV file: {e}', 'error')
+    
+    stats = get_month_stats(month_num)
+    
+    # Get scheduler errors for this month
+    scheduler_errors = [
+        error for error in poster.get_scheduler_errors() 
+        if error.get('month') == month_num
+    ]
+    
+    return render_template('month_detail.html', 
+                         month_num=month_num,
+                         month_name=month_names[month_num-1],
+                         images=images,
+                         captions=captions,
+                         stats=stats,
+                         scheduler_errors=scheduler_errors)
+
+@app.route('/upload_images/<int:month_num>', methods=['POST'])
+def upload_images(month_num):
+    """Upload images for a specific month"""
+    if 'files' not in request.files:
+        flash('No files selected', 'error')
+        return redirect(url_for('month_detail', month_num=month_num))
+    
+    files = request.files.getlist('files')
+    month_folder = UPLOAD_FOLDER / str(month_num)
+    month_folder.mkdir(exist_ok=True)
+    
+    uploaded_count = 0
+    for file in files:
+        if file and file.filename and allowed_file(file.filename, ALLOWED_EXTENSIONS):
+            # Get timestamp for unique filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Remove last 3 digits of microseconds
+            
+            # Get file extension
+            original_filename = secure_filename(file.filename)
+            name, ext = os.path.splitext(original_filename)
+            
+            # Create new filename with timestamp
+            filename = f"{timestamp}_{name}{ext}"
+            
+            file_path = month_folder / filename
+            file.save(file_path)
+            uploaded_count += 1
+    
+    flash(f'Successfully uploaded {uploaded_count} images', 'success')
+    return redirect(url_for('month_detail', month_num=month_num))
+
+@app.route('/upload_csv/<int:month_num>', methods=['POST'])
+def upload_csv(month_num):
+    """Upload or update CSV file for a specific month"""
+    if 'csv_file' not in request.files:
+        flash('No CSV file selected', 'error')
+        return redirect(url_for('month_detail', month_num=month_num))
+    
+    file = request.files['csv_file']
+    if not file or not file.filename or not allowed_file(file.filename, ALLOWED_CSV_EXTENSIONS):
+        flash('Invalid CSV file', 'error')
+        return redirect(url_for('month_detail', month_num=month_num))
+    
+    month_folder = UPLOAD_FOLDER / str(month_num)
+    month_folder.mkdir(exist_ok=True)
+    
+    # Find existing CSV file
+    existing_csv = None
+    for existing_file in month_folder.iterdir():
+        if existing_file.is_file() and existing_file.suffix.lower() == '.csv':
+            existing_csv = existing_file
+            break
+    
+    try:
+        # Read new CSV content
+        new_captions = []
+        file.stream.seek(0)
+        content = file.stream.read().decode('utf-8')
+        reader = csv.reader(content.splitlines())
+        for row in reader:
+            if row and len(row) >= 1 and row[0].strip():
+                # Handle both old format (caption only) and new format (id,caption)
+                if len(row) >= 2:
+                    # New format: id,caption
+                    new_captions.append(row[1].strip())
+                else:
+                    # Old format: caption only
+                    new_captions.append(row[0].strip())
+        
+        # Read existing CSV content if exists
+        existing_captions = []
+        next_id = 1
+        if existing_csv:
+            with open(existing_csv, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if row and len(row) >= 2 and row[1].strip():
+                        existing_captions.append(row[1].strip())
+                        try:
+                            next_id = max(next_id, int(row[0]) + 1)
+                        except:
+                            next_id = len(existing_captions) + 1
+        
+        # Add new captions that don't already exist
+        captions_to_add = [cap for cap in new_captions if cap not in existing_captions]
+        
+        # Write to CSV file with ID,caption format
+        csv_filename = existing_csv.name if existing_csv else 'captions.csv'
+        csv_path = month_folder / csv_filename
+        
+        # Read existing data first
+        all_captions = []
+        if existing_csv:
+            with open(existing_csv, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if row and len(row) >= 2 and row[1].strip():
+                        all_captions.append([row[0], row[1]])
+        
+        # Add new captions with sequential IDs
+        for caption in captions_to_add:
+            all_captions.append([str(next_id), caption])
+            next_id += 1
+        
+        # Write back to file
+        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            for caption_data in all_captions:
+                writer.writerow(caption_data)
+        
+        flash(f'Successfully added {len(captions_to_add)} new captions', 'success')
+        
+    except Exception as e:
+        flash(f'Error processing CSV file: {e}', 'error')
+    
+    return redirect(url_for('month_detail', month_num=month_num))
+
+@app.route('/post_now', methods=['POST'])
+def post_now():
+    """Post content immediately"""
+    try:
+        num_images = int(request.form.get('num_images', 1))
+        
+        poster = InstagramPoster()
+        
+        # Get content for current month
+        try:
+            content = poster.get_current_month_content_new(num_images)
+        except ValueError as e:
+            # Handle insufficient images error
+            return jsonify({'success': False, 'message': str(e)})
+        
+        if not content:
+            return jsonify({'success': False, 'message': 'No content available for current month'})
+        
+        folder, images, caption, post_number = content
+        current_month = int(folder.name)
+        
+        # Enhance text with ChatGPT if enabled
+        enhanced_text = poster.enhance_text_with_chatgpt(caption)
+        
+        # Add month info to caption
+        month_names = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
+        month_name = month_names[current_month - 1]
+        
+        final_caption = f"{enhanced_text}"
+        
+        # Setup driver and post
+        if not poster.setup_chrome_driver():
+            return jsonify({'success': False, 'message': 'Failed to setup Chrome driver'})
+        
+        try:
+            if not poster.navigate_to_instagram():
+                return jsonify({'success': False, 'message': 'Failed to navigate to Instagram'})
+            
+            # Post to Instagram (using all selected images)
+            if poster.post_to_instagram(images, final_caption):
+                poster.mark_content_as_posted(current_month, post_number, [img.name for img in images])
+                return jsonify({'success': True, 'message': f'Successfully posted content #{post_number} with {len(images)} images'})
+            else:
+                return jsonify({'success': False, 'message': 'Failed to post to Instagram'})
+                
+        finally:
+            if poster.driver:
+                poster.driver.quit()
+                
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+@app.route('/api/stats')
+def api_stats():
+    """API endpoint for getting stats"""
+    month_num = request.args.get('month', type=int)
+    if month_num:
+        return jsonify(get_month_stats(month_num))
+    
+    # Return all months stats
+    all_stats = []
+    for i in range(1, 13):
+        all_stats.append(get_month_stats(i))
+    
+    return jsonify(all_stats)
+
+@app.route('/api/scheduler/settings', methods=['GET'])
+def get_scheduler_settings():
+    """Get scheduler settings"""
+    try:
+        poster = InstagramPoster()
+        return jsonify({
+            'success': True,
+            'settings': poster.settings
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error getting settings: {str(e)}'
+        })
+
+@app.route('/api/scheduler/settings', methods=['POST'])
+def update_scheduler_settings():
+    """Update scheduler settings"""
+    try:
+        data = request.get_json()
+        poster = InstagramPoster()
+        
+        # Update specific settings
+        if 'num_images' in data:
+            num_images = int(data['num_images'])
+            if 1 <= num_images <= 10:
+                poster.update_setting('num_images', num_images)
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'Number of images must be between 1 and 10'
+                })
+        
+        if 'post_interval_hours' in data:
+            interval = int(data['post_interval_hours'])
+            if 1 <= interval <= 24:
+                poster.update_setting('post_interval_hours', interval)
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'Post interval must be between 1 and 24 hours'
+                })
+        
+        if 'enabled' in data:
+            poster.update_setting('enabled', bool(data['enabled']))
+        
+        return jsonify({
+            'success': True,
+            'message': 'Settings updated successfully',
+            'settings': poster.settings
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error updating settings: {str(e)}'
+        })
+
+@app.route('/api/scheduler/start', methods=['POST'])
+def start_scheduler():
+    """Start the scheduler (this would need to be implemented with a background process)"""
+    try:
+        # This is a placeholder - in production you'd start the scheduler as a background service
+        return jsonify({
+            'success': True,
+            'message': 'Scheduler start command sent. Run `python instagram_poster.py schedule` to start the scheduler.'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error starting scheduler: {str(e)}'
+        })
+
+@app.route('/api/scheduler/status')
+def scheduler_status():
+    """Get scheduler status"""
+    try:
+        poster = InstagramPoster()
+        settings = poster.settings
+        
+        return jsonify({
+            'success': True,
+            'status': {
+                'enabled': settings.get('enabled', True),
+                'num_images': settings.get('num_images', 1),
+                'post_interval_hours': settings.get('post_interval_hours', 4),
+                'next_post_estimated': 'Unknown (scheduler not running in web mode)'
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error getting scheduler status: {str(e)}'
+        })
+
+@app.route('/settings')
+def settings():
+    """Settings page"""
+    return render_template('settings.html')
+
+@app.route('/images/<int:month_num>/<filename>')
+def serve_image(month_num, filename):
+    """Serve images from the content directory"""
+    try:
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        return send_from_directory(month_folder, filename)
+    except Exception as e:
+        # Return a placeholder image or 404
+        return f"Image not found: {filename}", 404
+
+@app.route('/create_sample_content', methods=['POST'])
+def create_sample_content():
+    """Create sample CSV files for all months"""
+    try:
+        content_dir = Path('content')
+        content_dir.mkdir(exist_ok=True)
+        
+        created_months = []
+        
+        # Create folders for months 1-12
+        for month in range(1, 13):
+            month_dir = content_dir / str(month)
+            month_dir.mkdir(exist_ok=True)
+            
+            # Create sample CSV file with captions (only if it doesn't exist)
+            csv_file = month_dir / 'captions.csv'
+            if not csv_file.exists():
+                with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['1', f"First amazing post for month {month}! 🌟 #month{month} #content"])
+                    writer.writerow(['2', f"Second incredible post for month {month}! ✨ #instagram #amazing"])
+                    writer.writerow(['3', f"Third fantastic post for month {month}! 🚀 #social #media"])
+                    writer.writerow(['4', f"Fourth wonderful post for month {month}! 💫 #creative #content"])
+                    writer.writerow(['5', f"Fifth awesome post for month {month}! 🎯 #engagement #growth"])
+                
+                created_months.append(month)
+        
+        if created_months:
+            flash(f'Successfully created sample content for {len(created_months)} months', 'success')
+        else:
+            flash('Sample content already exists for all months', 'info')
+        
+        return jsonify({'success': True, 'message': f'Sample content created for {len(created_months)} months'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error creating sample content: {str(e)}'})
+
+@app.route('/delete_image/<int:month_num>/<filename>', methods=['POST'])
+def delete_image(month_num, filename):
+    """Delete a specific image from a month folder"""
+    try:
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        image_path = month_folder / secure_filename(filename)
+        
+        if image_path.exists() and image_path.is_file():
+            image_path.unlink()
+            flash(f'Successfully deleted {filename}', 'success')
+            return jsonify({'success': True, 'message': f'Successfully deleted {filename}'})
+        else:
+            return jsonify({'success': False, 'message': 'Image not found'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error deleting image: {str(e)}'})
+
+@app.route('/edit_caption/<int:month_num>', methods=['POST'])
+def edit_caption(month_num):
+    """Edit a specific caption"""
+    try:
+        data = request.get_json()
+        caption_id = data.get('id')
+        new_text = data.get('text', '').strip()
+        
+        if not caption_id or not new_text:
+            return jsonify({'success': False, 'message': 'Missing caption ID or text'})
+        
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        csv_file = None
+        for file in month_folder.iterdir():
+            if file.is_file() and file.suffix.lower() == '.csv':
+                csv_file = file
+                break
+        
+        if not csv_file:
+            return jsonify({'success': False, 'message': 'No CSV file found'})
+        
+        # Read all captions
+        captions = []
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if row and len(row) >= 2:
+                    captions.append([row[0], row[1]])
+        
+        # Update the specific caption
+        updated = False
+        for i, caption in enumerate(captions):
+            if caption[0] == caption_id:
+                captions[i][1] = new_text
+                updated = True
+                break
+        
+        if not updated:
+            return jsonify({'success': False, 'message': 'Caption not found'})
+        
+        # Write back to file
+        with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            for caption_data in captions:
+                writer.writerow(caption_data)
+        
+        return jsonify({'success': True, 'message': 'Caption updated successfully'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error updating caption: {str(e)}'})
+
+@app.route('/add_caption/<int:month_num>', methods=['POST'])
+def add_caption(month_num):
+    """Add new caption(s) to CSV file"""
+    try:
+        data = request.get_json()
+        input_text = data.get('text', '').strip()
+        
+        if not input_text:
+            return jsonify({'success': False, 'message': 'Caption text is required'})
+        
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        month_folder.mkdir(exist_ok=True)
+        
+        # Find or create CSV file
+        csv_file = None
+        for file in month_folder.iterdir():
+            if file.is_file() and file.suffix.lower() == '.csv':
+                csv_file = file
+                break
+        
+        if not csv_file:
+            csv_file = month_folder / 'captions.csv'
+        
+        # Read existing captions to check for duplicates and get next ID
+        existing_captions = {}
+        max_id_num = 0
+        
+        if csv_file.exists():
+            try:
+                with open(csv_file, 'r', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    for row in reader:
+                        if row and len(row) >= 2:
+                            existing_captions[row[0]] = row[1]
+                            # Try to extract number from ID for auto-increment
+                            try:
+                                if row[0].startswith('post'):
+                                    num = int(row[0][4:])  # Extract number after 'post'
+                                    max_id_num = max(max_id_num, num)
+                            except:
+                                pass
+            except Exception as e:
+                return jsonify({'success': False, 'message': f'Error reading existing captions: {str(e)}'})
+        
+        # Parse input lines
+        lines = input_text.split('\n')
+        new_captions = []
+        errors = []
+        
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check if line contains comma (id,caption format)
+            if ',' in line:
+                parts = line.split(',', 1)  # Split only on first comma
+                caption_id = parts[0].strip()
+                caption_text = parts[1].strip()
+                
+                if not caption_id or not caption_text:
+                    errors.append(f"Line {line_num}: Both ID and caption text are required")
+                    continue
+                    
+                if caption_id in existing_captions:
+                    errors.append(f"Line {line_num}: ID '{caption_id}' already exists")
+                    continue
+                    
+                # Check for duplicates within this input
+                if any(cap[0] == caption_id for cap in new_captions):
+                    errors.append(f"Line {line_num}: Duplicate ID '{caption_id}' in input")
+                    continue
+                    
+                new_captions.append((caption_id, caption_text))
+            else:
+                # Caption only format - auto-assign ID
+                caption_text = line.strip()
+                if not caption_text:
+                    continue
+                    
+                # Generate next available ID
+                max_id_num += 1
+                caption_id = f"post{max_id_num}"
+                
+                # Ensure this auto-generated ID doesn't exist
+                while caption_id in existing_captions or any(cap[0] == caption_id for cap in new_captions):
+                    max_id_num += 1
+                    caption_id = f"post{max_id_num}"
+                
+                new_captions.append((caption_id, caption_text))
+        
+        if not new_captions and not errors:
+            return jsonify({'success': False, 'message': 'No valid captions found in input'})
+        
+        if new_captions:
+            # Append new captions to CSV file
+            try:
+                with open(csv_file, 'a', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    for caption_id, caption_text in new_captions:
+                        writer.writerow([caption_id, caption_text])
+                        
+                success_msg = f"Successfully added {len(new_captions)} caption(s)"
+                if errors:
+                    success_msg += f". {len(errors)} error(s) occurred: " + "; ".join(errors)
+                    
+                return jsonify({'success': True, 'message': success_msg})
+                
+            except Exception as e:
+                return jsonify({'success': False, 'message': f'Error writing to CSV file: {str(e)}'})
+        else:
+            error_msg = f"No captions added. Errors: " + "; ".join(errors)
+            return jsonify({'success': False, 'message': error_msg})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error adding caption(s): {str(e)}'})
+
+@app.route('/reorder_captions/<int:month_num>', methods=['POST'])
+def reorder_captions(month_num):
+    """Reorder captions based on new order"""
+    try:
+        data = request.get_json()
+        new_order = data.get('order', [])  # List of caption IDs in new order
+        
+        if not new_order:
+            return jsonify({'success': False, 'message': 'New order is required'})
+        
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        csv_file = None
+        for file in month_folder.iterdir():
+            if file.is_file() and file.suffix.lower() == '.csv':
+                csv_file = file
+                break
+        
+        if not csv_file:
+            return jsonify({'success': False, 'message': 'No CSV file found'})
+        
+        # Read all captions into a dictionary
+        captions_dict = {}
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if row and len(row) >= 2:
+                    captions_dict[row[0]] = row[1]
+        
+        # Reorder captions based on new order
+        reordered_captions = []
+        for caption_id in new_order:
+            if caption_id in captions_dict:
+                reordered_captions.append([caption_id, captions_dict[caption_id]])
+        
+        # Write back to file
+        with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            for caption_data in reordered_captions:
+                writer.writerow(caption_data)
+        
+        return jsonify({'success': True, 'message': 'Captions reordered successfully'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error reordering captions: {str(e)}'})
+
+@app.route('/reorder_images/<int:month_num>', methods=['POST'])
+def reorder_images(month_num):
+    """Reorder images based on new order using JSON storage instead of renaming files"""
+    try:
+        data = request.get_json()
+        new_order = data.get('order', [])  # List of filenames in new order
+        
+        if not new_order:
+            return jsonify({'success': False, 'message': 'New order is required'})
+        
+        poster = InstagramPoster()
+        
+        # Update the image order using the new system
+        if poster.update_month_image_order(month_num, new_order):
+            return jsonify({'success': True, 'message': 'Images reordered successfully'})
+        else:
+            return jsonify({'success': False, 'message': 'Failed to update image order'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error reordering images: {str(e)}'})
+
+@app.route('/clear_scheduler_errors', methods=['POST'])
+def clear_scheduler_errors():
+    """Clear scheduler errors"""
+    try:
+        poster = InstagramPoster()
+        poster.clear_scheduler_errors()
+        return jsonify({'success': True, 'message': 'Scheduler errors cleared successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error clearing scheduler errors: {str(e)}'})
+
+if __name__ == '__main__':
+    # Create content directory
+    UPLOAD_FOLDER.mkdir(exist_ok=True)
+    
+    # Run the app
+    app.run(debug=True, host='0.0.0.0', port=5001) 

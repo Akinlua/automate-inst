@@ -18,6 +18,7 @@ import json
 import base64
 import ssl
 import urllib3
+import csv
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -84,6 +85,14 @@ class InstagramPoster:
         self.posted_log_file = Path('posted_content.json')
         self.posted_content = self.load_posted_content()
         
+        # Settings file for scheduler configuration
+        self.settings_file = Path('scheduler_settings.json')
+        self.settings = self.load_settings()
+        
+        # New file for image ordering
+        self.image_order_file = Path('image_order.json')
+        self.image_order = self.load_image_order()
+        
         logger.info("Instagram Poster initialized successfully")
     
     def load_posted_content(self) -> Dict:
@@ -103,6 +112,47 @@ class InstagramPoster:
                 json.dump(self.posted_content, f, indent=2)
         except Exception as e:
             logger.error(f"Error saving posted content log: {e}")
+    
+    def load_settings(self):
+        """Load settings from JSON file"""
+        default_settings = {
+            'enabled': True,
+            'num_images': 1,
+            'post_interval_hours': 4,
+            'use_sequential_images': True,  # New setting for image selection order
+            'chatgpt_enabled': False,
+            'chatgpt_api_key': '',
+            'instagram_username': '',
+            'instagram_password': ''
+        }
+        
+        if self.settings_file.exists():
+            try:
+                with open(self.settings_file, 'r', encoding='utf-8') as f:
+                    loaded_settings = json.load(f)
+                    default_settings.update(loaded_settings)
+            except Exception as e:
+                logger.warning(f"Error loading settings: {e}")
+        
+        return default_settings
+    
+    def save_settings(self):
+        """Save scheduler settings"""
+        try:
+            with open(self.settings_file, 'w') as f:
+                json.dump(self.settings, f, indent=2)
+            logger.info("Settings saved successfully")
+        except Exception as e:
+            logger.error(f"Error saving settings: {e}")
+    
+    def update_setting(self, key: str, value):
+        """Update a specific setting"""
+        self.settings[key] = value
+        self.save_settings()
+    
+    def get_setting(self, key: str, default=None):
+        """Get a specific setting"""
+        return self.settings.get(key, default)
     
     def setup_chrome_driver(self):
         """Setup Chrome driver with saved profile"""
@@ -297,64 +347,65 @@ class InstagramPoster:
                 logger.error(f"Fallback Select from computer selector also failed: {e2}")
                 return False
     
-    # def upload_image(self, image_path):
-    #     """Upload an image file"""
-    #     try:
-    #         # Look for file input
-    #         file_input = self.wait.until(EC.presence_of_element_located((
-    #             By.XPATH, "//input[@type='file']"
-    #         )))
-            
-    #         # Upload the file
-    #         absolute_path = os.path.abspath(image_path)
-    #         file_input.send_keys(absolute_path)
-    #         logger.info(f"Uploaded image: {image_path}")
-    #         time.sleep(5)  # Wait for image to process
-    #         return True
-    #     except Exception as e:
-    #         logger.error(f"Failed to upload image: {e}")
-    #         return False
-    
-    def upload_image(self, image_path):
-        """Upload an image using JavaScript File API"""
+    def upload_multiple_images(self, image_paths: List[Path]) -> bool:
+        """Upload multiple images using JavaScript File API for Instagram carousel"""
         try:
-            # Get absolute path
-            absolute_path = os.path.abspath(image_path)
-            logger.info(f"Uploading image: {absolute_path}")
+            if not image_paths:
+                logger.error("No image paths provided")
+                return False
             
-            # Read file and encode to base64
-            with open(absolute_path, 'rb') as file:
-                file_content = base64.b64encode(file.read()).decode()
+            logger.info(f"Uploading {len(image_paths)} images for carousel post")
             
-            # Get just the filename
-            filename = os.path.basename(absolute_path)
+            # Prepare files data
+            files_data = []
+            for image_path in image_paths:
+                absolute_path = os.path.abspath(str(image_path))
+                
+                # Read file and encode to base64
+                with open(absolute_path, 'rb') as file:
+                    file_content = base64.b64encode(file.read()).decode()
+                
+                # Get filename and determine MIME type
+                filename = os.path.basename(absolute_path)
+                file_ext = os.path.splitext(filename)[1].lower()
+                mime_type = {
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.png': 'image/png',
+                    '.webp': 'image/webp',
+                    '.gif': 'image/gif'
+                }.get(file_ext, 'image/jpeg')
+                
+                files_data.append({
+                    'content': file_content,
+                    'filename': filename,
+                    'mime_type': mime_type
+                })
             
-            # Determine MIME type based on file extension
-            file_ext = os.path.splitext(filename)[1].lower()
-            mime_type = {
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.png': 'image/png',
-                '.webp': 'image/webp'
-            }.get(file_ext, 'image/jpeg')
-            # print(file_content)
-            
-            # JavaScript to create file and upload
+            # JavaScript to create multiple files and upload
             script = f"""
             var input = document.querySelector('input[type="file"]');
             if (!input) {{
                 throw new Error('File input not found');
             }}
             
-            var file = new File([Uint8Array.from(atob('{file_content}'), c => c.charCodeAt(0))], 
-                                '{filename}', {{type: '{mime_type}'}});
             var dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
+            """
+            
+            # Add each file to the script
+            for i, file_data in enumerate(files_data):
+                script += f"""
+            var file{i} = new File([Uint8Array.from(atob('{file_data["content"]}'), c => c.charCodeAt(0))], 
+                                '{file_data["filename"]}', {{type: '{file_data["mime_type"]}'}});
+            dataTransfer.items.add(file{i});
+            """
+            
+            script += """
             input.files = dataTransfer.files;
             
             // Trigger change event
-            input.dispatchEvent(new Event('change', {{bubbles: true}}));
-            input.dispatchEvent(new Event('input', {{bubbles: true}}));
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+            input.dispatchEvent(new Event('input', {bubbles: true}));
             
             return true;
             """
@@ -363,25 +414,37 @@ class InstagramPoster:
             result = self.driver.execute_script(script)
             time.sleep(5)
             
-            # Wait for the image to be processed
+            # Wait for images to be processed
             try:
-                # Wait for image to be loaded/processed - look for the crop interface
+                # Wait for image processing interface
                 self.wait.until(EC.any_of(
                     EC.presence_of_element_located((By.XPATH, "//canvas")),  # Image canvas
                     EC.presence_of_element_located((By.XPATH, "//img[contains(@style, 'object-fit')]")),  # Image preview
                     EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Next')]")),  # Next button
                     EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'crop')]"))  # Crop interface
                 ))
-                logger.info("Image uploaded and processed successfully")
+                logger.info(f"Successfully uploaded {len(image_paths)} images for carousel")
                 time.sleep(3)  # Give it a moment to fully load
                 return True
                 
             except Exception as e:
-                logger.error(f"Image didn't load properly after upload: {e}")
+                logger.error(f"Images didn't load properly after upload: {e}")
                 return False
             
         except Exception as e:
-            logger.error(f"Failed to upload image using JavaScript: {e}")
+            logger.error(f"Failed to upload multiple images: {e}")
+            return False
+
+    def upload_image(self, image_path):
+        """Upload a single image using JavaScript File API"""
+        try:
+            # Convert single image to list and use multiple upload method
+            if isinstance(image_path, (str, Path)):
+                return self.upload_multiple_images([Path(image_path)])
+            else:
+                return self.upload_multiple_images(image_path)
+        except Exception as e:
+            logger.error(f"Failed to upload image: {e}")
             return False
     
     def click_next_button(self, step_name=""):
@@ -651,11 +714,22 @@ class InstagramPoster:
             logger.error(f"Error preparing image {image_path}: {e}")
             return image_path
     
-    def post_to_instagram(self, image_path: Path, caption: str) -> bool:
-        """Post image with caption to Instagram using Selenium"""
+    def post_to_instagram(self, image_paths, caption: str) -> bool:
+        """Post images with caption to Instagram using Selenium"""
         try:
-            # Prepare image
-            prepared_image = self.prepare_image(image_path)
+            # Handle both single image and multiple images
+            if isinstance(image_paths, (str, Path)):
+                image_paths = [Path(image_paths)]
+            elif not isinstance(image_paths, list):
+                image_paths = [image_paths]
+            
+            # Prepare images
+            prepared_images = []
+            for image_path in image_paths:
+                prepared_image = self.prepare_image(Path(image_path))
+                prepared_images.append(prepared_image)
+            
+            logger.info(f"Posting {len(prepared_images)} images to Instagram")
             
             # Complete workflow to create and upload a post
             # Step 1: Click the + icon for new post
@@ -670,8 +744,8 @@ class InstagramPoster:
             # if not self.click_select_from_computer():
             #     return False
             
-            # Step 4: Upload image
-            if not self.upload_image(str(prepared_image)):
+            # Step 4: Upload images (single or multiple)
+            if not self.upload_multiple_images(prepared_images):
                 return False
             
             # Step 5: Click Next button (first time)
@@ -691,103 +765,212 @@ class InstagramPoster:
             if not self.click_share_button():
                 return False
             
-            # Clean up temporary resized image if created
-            if prepared_image != image_path and prepared_image.exists():
-                prepared_image.unlink()
+            # Clean up temporary resized images if created
+            for original, prepared in zip(image_paths, prepared_images):
+                if prepared != original and prepared.exists():
+                    prepared.unlink()
             
-            logger.info("Successfully posted to Instagram using Selenium")
+            logger.info(f"Successfully posted {len(prepared_images)} images to Instagram using Selenium")
             return True
             
         except Exception as e:
             logger.error(f"Error posting to Instagram: {e}")
             return False
     
-    def get_current_month_content(self) -> Optional[Tuple[Path, List[Path], List[str]]]:
-        """Get content for the current month"""
-        current_month = datetime.now().month
-        monthly_folders = self.get_monthly_folders()
-        
-        # Find folder for current month
-        current_month_folder = None
-        for folder in monthly_folders:
-            if int(folder.name) == current_month:
-                current_month_folder = folder
-                break
-        
-        if not current_month_folder:
-            logger.warning(f"No folder found for current month: {current_month}")
-            return None
-        
-        # Get images and text files
-        images = self.get_images_from_folder(current_month_folder)
-        text_files = self.get_text_files_from_folder(current_month_folder)
-        
-        if not images:
-            logger.warning(f"No images found in month {current_month}")
-            return None
-        
-        if not text_files:
-            logger.warning(f"No text files found in month {current_month}")
-            return None
-        
-        # Read all text files
-        texts = []
-        for text_file in text_files:
-            content = self.read_text_file(text_file)
-            if content:
-                texts.append(content)
-        
-        if not texts:
-            logger.warning(f"No valid text content found in month {current_month}")
-            return None
-        
-        return current_month_folder, images, texts
+    def get_csv_from_folder(self, folder: Path) -> Optional[Path]:
+        """Get CSV file from a folder"""
+        for file in folder.iterdir():
+            if file.is_file() and file.suffix.lower() == '.csv':
+                return file
+        return None
     
-    def create_content_key(self, month: int, image_name: str, text_index: int) -> str:
-        """Create a unique key for tracking posted content"""
-        return f"{month}_{image_name}_{text_index}"
+    def read_csv_captions(self, csv_path: Path) -> List[Tuple[str, str]]:
+        """Read captions from CSV file with ID,caption format"""
+        try:
+            captions = []
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if row and len(row) >= 2 and row[1].strip():  # ID,caption format
+                        captions.append((row[0].strip(), row[1].strip()))
+                    elif row and len(row) == 1 and row[0].strip():  # Legacy caption-only format
+                        # Convert to ID,caption format (use index as ID)
+                        captions.append((str(len(captions) + 1), row[0].strip()))
+            return captions
+        except Exception as e:
+            logger.error(f"Error reading CSV file {csv_path}: {e}")
+            return []
+    
+    def get_next_available_post(self, month: int) -> Optional[Tuple[str, str]]:
+        """Get the next available post ID and caption for a month"""
+        month_folder = self.content_dir / str(month)
+        if not month_folder.exists():
+            return None
+        
+        csv_file = self.get_csv_from_folder(month_folder)
+        if not csv_file:
+            logger.warning(f"No CSV file found in month {month}")
+            return None
+        
+        captions = self.read_csv_captions(csv_file)
+        if not captions:
+            return None
+        
+        # Check which post IDs have been used
+        month_key = f"month_{month}"
+        posted_data = self.posted_content.get(month_key, {})
+        used_post_ids = set(posted_data.get('used_posts', []))
+        
+        # Find next available post by ID (in order they appear in CSV)
+        for post_id, caption in captions:
+            if post_id not in used_post_ids:
+                return post_id, caption
+        
+        logger.info(f"All posts for month {month} have been used")
+        return None
+    
+    def select_random_images(self, month_folder, num_images=1):
+        """Select random images from month folder that haven't been used, respecting the defined order"""
+        # Get ordered list of images for this month
+        month_num = int(month_folder.name)
+        ordered_images = self.get_month_image_order(month_num)
+        
+        if not ordered_images:
+            return []
+        
+        # Get used images for this month
+        month_key = f"month_{month_num}"
+        used_images = set(self.posted_content.get(month_key, {}).get('used_images', []))
+        
+        # Filter out used images, maintaining order
+        available_images = [img for img in ordered_images if img not in used_images]
+        
+        if len(available_images) < num_images:
+            raise ValueError(f"Not enough images available. Need {num_images}, but only {len(available_images)} unused images available.")
+        
+        # Take the first N images from the ordered list (or random selection)
+        import random
+        if self.settings.get('use_sequential_images', True):
+            # Use sequential order
+            selected_images = available_images[:num_images]
+        else:
+            # Use random selection
+            selected_images = random.sample(available_images, num_images)
+        
+        # Convert to Path objects
+        return [month_folder / img for img in selected_images]
+    
+    def mark_content_as_posted(self, month: int, post_id: str, image_names: List[str]):
+        """Mark content as posted to avoid repetition"""
+        month_key = f"month_{month}"
+        
+        if month_key not in self.posted_content:
+            self.posted_content[month_key] = {
+                'used_posts': [],
+                'used_images': [],
+                'post_history': []
+            }
+        
+        # Mark post and images as used
+        self.posted_content[month_key]['used_posts'].append(post_id)
+        self.posted_content[month_key]['used_images'].extend(image_names)
+        
+        # Add to history
+        self.posted_content[month_key]['post_history'].append({
+            'posted_at': datetime.now().isoformat(),
+            'post_id': post_id,
+            'images': image_names
+        })
+        
+        self.save_posted_content()
+    
+    def get_current_month_content_new(self, num_images=1):
+        """
+        Get content for the current month using the new CSV-based structure
+        Returns (folder, images, caption, post_number) or None if no content available
+        """
+        import datetime
+        current_month = datetime.datetime.now().month
+        
+        # Get next available post
+        post_data = self.get_next_available_post(current_month)
+        if not post_data:
+            logger.info("No available posts for current month")
+            return None
+        
+        post_id, caption = post_data
+        
+        # Get the month folder
+        month_folder = self.content_dir / str(current_month)
+        
+        # Select images (in order, not random)
+        images = self.select_random_images(month_folder, num_images)
+        if not images:
+            # Check if it's because of insufficient images
+            all_images = self.get_images_from_folder(month_folder)
+            month_key = f"month_{current_month}"
+            posted_data = self.posted_content.get(month_key, {})
+            used_images = set(posted_data.get('used_images', []))
+            available_images = [img for img in all_images if img.name not in used_images]
+            
+            if len(available_images) > 0 and len(available_images) < num_images:
+                error_msg = f"Insufficient unused images. Need: {num_images}, Available: {len(available_images)}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            logger.info("No available images for current month")
+            return None
+        
+        return (month_folder, images, caption, post_id)
     
     def post_monthly_content(self):
         """Post content for the current month"""
         logger.info("Starting monthly content posting...")
         
+        # Reload settings to pick up any changes made through web interface
+        self.settings = self.load_settings()
+        logger.info("Settings reloaded from file")
+        
+        # Check if scheduler is enabled
+        if not self.get_setting('enabled', True):
+            logger.info("Scheduler is disabled")
+            return
+        
         if not self.setup_chrome_driver():
             logger.error("Failed to setup Chrome driver")
+            self.save_scheduler_error("Failed to setup Chrome driver")
             return
         
         try:
             if not self.navigate_to_instagram():
                 logger.error("Failed to navigate to Instagram")
+                self.save_scheduler_error("Failed to navigate to Instagram")
                 return
         
-            # time.sleep(10000)
-            
-            content = self.get_current_month_content()
-            if not content:
-                logger.error("No content available for current month")
+            # Get number of images from settings (freshly loaded)
+            num_images = self.get_setting('num_images', 1)
+            logger.info(f"Using {num_images} images per post (from current settings)")
+        
+            try:
+                content = self.get_current_month_content_new(num_images)
+            except ValueError as e:
+                # Handle insufficient images error
+                error_msg = str(e)
+                logger.error(f"Scheduler error: {error_msg}")
+                self.save_scheduler_error(error_msg)
                 return
             
-            folder, images, texts = content
+            if not content:
+                error_msg = "No content available for current month"
+                logger.error(error_msg)
+                self.save_scheduler_error(error_msg)
+                return
+            
+            folder, images, caption, post_id = content
             current_month = int(folder.name)
             
-            # Randomly select an image and text combination that hasn't been posted
-            available_combinations = []
-            
-            for i, image in enumerate(images):
-                for j, text in enumerate(texts):
-                    content_key = self.create_content_key(current_month, image.name, j)
-                    if content_key not in self.posted_content:
-                        available_combinations.append((image, text, content_key))
-            
-            if not available_combinations:
-                logger.info("All content for this month has already been posted")
-                return
-            
-            # Randomly select a combination
-            image, text, content_key = random.choice(available_combinations)
-            
             # Enhance text with ChatGPT if enabled
-            enhanced_text = self.enhance_text_with_chatgpt(text)
+            enhanced_text = self.enhance_text_with_chatgpt(caption)
             print(f"Enhanced text: {enhanced_text}")
             
             # Add month info to caption
@@ -799,39 +982,222 @@ class InstagramPoster:
             
             final_caption = f"{enhanced_text}\n\n❤️ {month_name} Content\n\n#instagram #monthly #content"
             print(f"Final caption: {final_caption}")
-            print(f"Image: {image}")
+            print(f"Images: {images}")
             
             # Post to Instagram
-            if self.post_to_instagram(image, final_caption):
+            if self.post_to_instagram(images, final_caption):
                 # Mark as posted
-                self.posted_content[content_key] = {
-                    'posted_at': datetime.now().isoformat(),
-                    'image': image.name,
-                    'month': current_month,
-                    'text_index': texts.index(text)
-                }
-                self.save_posted_content()
-                logger.info(f"Successfully posted content: {content_key}")
+                self.mark_content_as_posted(current_month, post_id, [img.name for img in images])
+                logger.info(f"Successfully posted content: {post_id} with {len(images)} images")
+                self.clear_scheduler_errors()  # Clear errors on successful post
             else:
-                logger.error(f"Failed to post content: {content_key}")
+                error_msg = f"Failed to post content: {post_id}"
+                logger.error(error_msg)
+                self.save_scheduler_error(error_msg)
                 
         finally:
             if self.driver:
                 self.driver.quit()
     
+    def save_scheduler_error(self, error_message: str):
+        """Save scheduler error to be displayed on dashboard"""
+        error_data = {
+            'timestamp': datetime.now().isoformat(),
+            'message': error_message,
+            'month': datetime.now().month
+        }
+        
+        # Load existing errors
+        errors_file = Path('scheduler_errors.json')
+        errors = []
+        if errors_file.exists():
+            try:
+                with open(errors_file, 'r') as f:
+                    errors = json.load(f)
+            except:
+                errors = []
+        
+        # Add new error
+        errors.append(error_data)
+        
+        # Keep only last 10 errors
+        errors = errors[-10:]
+        
+        # Save errors
+        try:
+            with open(errors_file, 'w') as f:
+                json.dump(errors, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save scheduler error: {e}")
+    
+    def clear_scheduler_errors(self):
+        """Clear scheduler errors"""
+        errors_file = Path('scheduler_errors.json')
+        if errors_file.exists():
+            try:
+                errors_file.unlink()
+            except Exception as e:
+                logger.error(f"Failed to clear scheduler errors: {e}")
+    
+    def get_scheduler_errors(self) -> List[Dict]:
+        """Get scheduler errors for dashboard display"""
+        errors_file = Path('scheduler_errors.json')
+        if not errors_file.exists():
+            return []
+        
+        try:
+            with open(errors_file, 'r') as f:
+                return json.load(f)
+        except:
+            return []
+    
     def run_scheduler(self):
-        """Run the posting scheduler"""
-        post_hour = int(os.getenv('POST_HOUR', 12))
-        post_minute = int(os.getenv('POST_MINUTE', 0))
+        """Run the posting scheduler with dynamic settings reload"""
+        # Clear any existing jobs
+        schedule.clear()
         
-        # Schedule daily posting
-        schedule.every().day.at(f"{post_hour:02d}:{post_minute:02d}").do(self.post_monthly_content)
+        # Track current settings to detect changes
+        last_interval = None
         
-        logger.info(f"Scheduler started. Will post daily at {post_hour:02d}:{post_minute:02d}")
+        logger.info("Scheduler started with dynamic settings reload")
+        logger.info("Settings will be checked and reloaded every minute")
         
         while True:
-            schedule.run_pending()
-            time.sleep(60)  # Check every minute
+            try:
+                # Reload settings to pick up any changes
+                self.settings = self.load_settings()
+                current_interval = self.get_setting('post_interval_hours', 4)
+                
+                # Check if scheduler is disabled
+                if not self.get_setting('enabled', True):
+                    logger.info("Scheduler is disabled - waiting for re-enable...")
+                    schedule.clear()
+                    last_interval = None
+                    time.sleep(60)
+                    continue
+                
+                # If interval has changed, reschedule
+                if last_interval != current_interval:
+                    schedule.clear()
+                    
+                    # Set up the new schedule based on interval
+                    # if current_interval >= 24:
+                    #     # Daily posting
+                    #     schedule.every().day.at("09:00").do(self.post_monthly_content)
+                    #     logger.info(f"Rescheduled to post daily at 9:00 AM (interval: {current_interval}h)")
+                    # elif current_interval >= 12:
+                    #     # Twice daily
+                    #     schedule.every().day.at("09:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("21:00").do(self.post_monthly_content)
+                    #     logger.info(f"Rescheduled to post twice daily at 9:00 AM and 9:00 PM (interval: {current_interval}h)")
+                    # elif current_interval >= 6:
+                    #     # Four times daily
+                    #     schedule.every().day.at("06:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("12:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("18:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("23:00").do(self.post_monthly_content)
+                    #     logger.info(f"Rescheduled to post 4 times daily (interval: {current_interval}h)")
+                    # elif current_interval >= 4:
+                    #     # 6 times daily
+                    #     schedule.every().day.at("00:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("04:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("08:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("12:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("16:00").do(self.post_monthly_content)
+                    #     schedule.every().day.at("20:00").do(self.post_monthly_content)
+                    #     logger.info(f"Rescheduled to post 6 times daily (interval: {current_interval}h)")
+                    # elif current_interval >= 2:
+                    #     # 12 times daily
+                    #     for hour in range(0, 24, 2):
+                    #         schedule.every().day.at(f"{hour:02d}:00").do(self.post_monthly_content)
+                    #     logger.info(f"Rescheduled to post every 2 hours (interval: {current_interval}h)")
+                    # else:
+                        # Every hour or more frequent
+                    schedule.every().minute.do(self.post_monthly_content)
+                    logger.info(f"Rescheduled to post every hour (interval: {current_interval}h)")
+                    
+                    last_interval = current_interval
+                    logger.info(f"Current settings: {self.get_setting('num_images', 1)} images per post")
+                
+                # Run pending jobs
+                schedule.run_pending()
+                
+            except Exception as e:
+                logger.error(f"Error in scheduler loop: {e}")
+            
+            # Wait 60 seconds before next check
+            time.sleep(60)
+
+    def load_image_order(self):
+        """Load image order configuration"""
+        if self.image_order_file.exists():
+            try:
+                with open(self.image_order_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+    
+    def save_image_order(self):
+        """Save image order configuration"""
+        try:
+            with open(self.image_order_file, 'w', encoding='utf-8') as f:
+                json.dump(self.image_order, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving image order: {e}")
+    
+    def get_month_image_order(self, month):
+        """Get the ordered list of image filenames for a specific month"""
+        month_key = f"month_{month}"
+        month_folder = self.content_dir / str(month)
+        
+        if not month_folder.exists():
+            return []
+        
+        # Get all image files in the folder
+        all_images = [f.name for f in month_folder.iterdir() 
+                     if f.is_file() and f.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp', '.gif'}]
+        
+        # Get stored order for this month
+        stored_order = self.image_order.get(month_key, [])
+        
+        # Filter stored order to only include existing files
+        existing_ordered = [img for img in stored_order if img in all_images]
+        
+        # Add any new images that aren't in the stored order (at the end)
+        new_images = [img for img in all_images if img not in existing_ordered]
+        new_images.sort()  # Sort new images alphabetically
+        
+        # Combine existing order with new images
+        final_order = existing_ordered + new_images
+        
+        # Update stored order if there are new images
+        if new_images:
+            self.image_order[month_key] = final_order
+            self.save_image_order()
+        
+        return final_order
+    
+    def update_month_image_order(self, month, new_order):
+        """Update the image order for a specific month"""
+        month_key = f"month_{month}"
+        month_folder = self.content_dir / str(month)
+        
+        if not month_folder.exists():
+            return False
+        
+        # Verify all images in new_order actually exist
+        existing_images = {f.name for f in month_folder.iterdir() 
+                          if f.is_file() and f.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp', '.gif'}}
+        
+        valid_order = [img for img in new_order if img in existing_images]
+        
+        if valid_order:
+            self.image_order[month_key] = valid_order
+            self.save_image_order()
+            return True
+        
+        return False
 
 def create_sample_structure():
     """Create sample folder structure for testing"""
@@ -843,13 +1209,19 @@ def create_sample_structure():
         month_dir = content_dir / str(month)
         month_dir.mkdir(exist_ok=True)
         
-        # Create sample text files
-        (month_dir / 'post1.txt').write_text(f"This is sample content for month {month}! 🌟")
-        (month_dir / 'post2.txt').write_text(f"Another great post for month {month}! ✨")
+        # Create sample CSV file with captions
+        csv_file = month_dir / 'captions.csv'
+        with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow([f"First amazing post for month {month}! 🌟 #month{month} #content"])
+            writer.writerow([f"Second incredible post for month {month}! ✨ #instagram #amazing"])
+            writer.writerow([f"Third fantastic post for month {month}! 🚀 #social #media"])
+            writer.writerow([f"Fourth wonderful post for month {month}! 💫 #creative #content"])
+            writer.writerow([f"Fifth awesome post for month {month}! 🎯 #engagement #growth"])
         
         logger.info(f"Created sample structure for month {month}")
     
-    logger.info("Sample folder structure created. Add your images to the monthly folders!")
+    logger.info("Sample folder structure created with CSV files. Add your images to the monthly folders!")
 
 def main():
     """Main function"""
@@ -867,10 +1239,27 @@ def main():
             return
     
     print("Instagram Auto Poster (Selenium Version)")
-    print("Usage:")
-    print("  python instagram_poster.py create-sample  # Create sample folder structure")
-    print("  python instagram_poster.py post-now       # Post content immediately")
-    print("  python instagram_poster.py schedule       # Run scheduler")
+    print("========================================")
+    print()
+    print("🌟 Web Interface (Recommended):")
+    print("  python run.py                     # Start web interface at http://localhost:5000")
+    print()
+    print("📱 Command Line Usage:")
+    print("  python instagram_poster.py create-sample   # Create sample folder structure")
+    print("  python instagram_poster.py post-now        # Post content immediately")
+    print("  python instagram_poster.py schedule        # Run scheduler (deprecated)")
+    print()
+    print("⏰ Scheduler (Background Service):")
+    print("  python run_scheduler.py                    # Run scheduler as background service")
+    print()
+    print("💡 Configure settings via web interface:")
+    print("  • Number of images per post (1-5)")
+    print("  • Posting interval (1-24 hours)")
+    print("  • Enable/disable automatic posting")
+    print("  • ChatGPT integration")
+    print()
+    print("📝 Note: Make sure to set up your Chrome profile and content first!")
+    print("     Visit the web interface for easy management.")
 
 if __name__ == "__main__":
     main() 

@@ -1,276 +1,302 @@
-# Instagram Auto Poster 📸
+# Instagram Auto Poster 📱
 
-Automatically post content to Instagram from organized monthly folders. This script reads text files and images from monthly directories and posts them to Instagram on a schedule, with optional ChatGPT text enhancement.
+**Professional Instagram automation tool with Selenium and beautiful web interface**
 
-## Features ✨
+## 🎯 Key Features
 
-- 📁 **Monthly Organization**: Organize content by month (folders 1-12)
-- 🤖 **ChatGPT Integration**: Enhance text with AI (optional)
-- 📅 **Smart Scheduling**: Daily posting with customizable time
-- 🔄 **Duplicate Prevention**: Tracks posted content to avoid repeats
-- 🖼️ **Image Processing**: Automatic image resizing for Instagram
-- 📝 **Multiple Text Files**: Support for multiple posts per month
-- 🔐 **Secure**: Environment-based credential management
-- 📊 **Logging**: Comprehensive logging for monitoring
+- **🌟 Beautiful Web Interface** - Modern Flask-based dashboard for easy management
+- **⏰ Smart Scheduler** - Automated posting every 4 hours (configurable 1-24 hours)
+- **📊 CSV-Based Content** - Organized monthly content with CSV captions
+- **🖼️ Multiple Images** - Support for 1-10 images per post (configurable)
+- **🤖 ChatGPT Integration** - AI-enhanced captions for better engagement
+- **🔄 No Duplicates** - Advanced tracking to avoid reposting content
+- **📱 Mobile Responsive** - Works perfectly on desktop and mobile
+- **⚙️ Easy Configuration** - Web-based settings management
 
-## Folder Structure 📂
+## 🚀 Quick Start
 
-```
-content/
-├── 1/          # January
-│   ├── image1.jpg
-│   ├── image2.png
-│   ├── post1.txt
-│   └── post2.txt
-├── 2/          # February
-│   ├── photo1.jpg
-│   └── caption1.txt
-├── 3/          # March
-│   └── ...
-└── 12/         # December
-    └── ...
-```
-
-## Quick Start 🚀
-
-### 1. Setup
-
+### 1. Installation
 ```bash
-# Clone or download the files
+# Clone the repository
+git clone <repository-url>
 cd instagram_api
 
-# Run the setup script
-python setup.py
-```
-
-The setup script will:
-- Install required dependencies
-- Configure your Instagram credentials
-- Set up ChatGPT integration (optional)
-- Create the monthly folder structure
-- Set posting schedule
-
-### 2. Add Your Content
-
-1. **Add Images**: Place your images in the appropriate monthly folders (1-12)
-   - Supported formats: JPG, JPEG, PNG, WEBP
-   - Images will be automatically resized for Instagram
-
-2. **Add Text**: Create `.txt` files with your captions
-   - You can have multiple text files per month
-   - The script will randomly combine images and texts
-
-### 3. Test and Run
-
-```bash
-# Test posting immediately
-python instagram_poster.py post-now
-
-# Start the scheduler (runs continuously)
-python instagram_poster.py schedule
-
-# Create sample structure only
-python instagram_poster.py create-sample
-```
-
-## Manual Setup 🔧
-
-If you prefer manual setup:
-
-### 1. Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` and fill in your details:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
+### 2. Setup Environment
+Create a `.env` file:
 ```env
-INSTAGRAM_USERNAME=your_username
-INSTAGRAM_PASSWORD=your_password
-OPENAI_API_KEY=your_openai_key  # Optional
+# Basic Settings
 CONTENT_DIR=content
-POST_HOUR=12
-POST_MINUTE=0
-USE_CHATGPT=false
+USE_CHATGPT=true
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Chrome Settings (optional - auto-detected)
+CHROME_PROFILE_PATH=/path/to/chrome/profile
+CHROME_USER_DATA_DIR=/path/to/chrome/user/data
+CHROME_PROFILE_NAME=InstagramBot
 ```
 
-### 3. Create Folder Structure
+### 3. Launch Web Interface
+```bash
+python run.py
+```
+Visit **http://localhost:5000** to access the dashboard
 
+### 4. Setup Content Structure
 ```bash
 python instagram_poster.py create-sample
 ```
 
-## Configuration Options ⚙️
+## 📋 Usage Guide
+
+### 🌐 Web Interface (Recommended)
+
+1. **Start the web server:**
+   ```bash
+   python run.py
+   ```
+
+2. **Access the dashboard:** http://localhost:5000
+
+3. **Manage content by month:**
+   - Upload images for each month
+   - Upload CSV files with captions
+   - View progress and statistics
+   - Post content immediately
+
+4. **Configure scheduler:**
+   - Go to Settings page
+   - Set number of images per post (1-10)
+   - Configure posting interval (1-24 hours, default: 4 hours)
+   - Enable/disable automatic posting
+
+### ⏰ Background Scheduler
+
+Start the automated posting service:
+```bash
+python run_scheduler.py
+```
+
+This will:
+- Post content every 4 hours (or your configured interval)
+- Use the number of images setting from web interface
+- Select images randomly and captions sequentially
+- Track used content to avoid duplicates
+
+### 📱 Command Line Usage
+
+```bash
+# Create sample structure
+python instagram_poster.py create-sample
+
+# Post immediately
+python instagram_poster.py post-now
+
+# Run scheduler (deprecated - use run_scheduler.py)
+python instagram_poster.py schedule
+```
+
+## 🔧 Configuration
+
+### Scheduler Settings
+
+Configure via web interface at `/settings` or using API:
+
+```bash
+# Get current settings
+curl http://localhost:5000/api/scheduler/settings
+
+# Update settings
+curl -X POST http://localhost:5000/api/scheduler/settings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "num_images": 3,
+    "post_interval_hours": 6,
+    "enabled": true
+  }'
+```
+
+**Available Settings:**
+- `num_images`: Number of images per post (1-10)
+- `post_interval_hours`: Posting interval in hours (1-24)
+- `enabled`: Enable/disable automatic posting
 
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `INSTAGRAM_USERNAME` | Your Instagram username | Required |
-| `INSTAGRAM_PASSWORD` | Your Instagram password | Required |
-| `OPENAI_API_KEY` | OpenAI API key for ChatGPT | Optional |
-| `CONTENT_DIR` | Directory containing monthly folders | `content` |
-| `POST_HOUR` | Hour to post (0-23) | `12` |
-| `POST_MINUTE` | Minute to post (0-59) | `0` |
+| `CONTENT_DIR` | Content directory path | `content` |
 | `USE_CHATGPT` | Enable ChatGPT enhancement | `false` |
+| `OPENAI_API_KEY` | Your OpenAI API key | - |
+| `CHROME_PROFILE_PATH` | Chrome profile path | Auto-detected |
+| `CHROME_USER_DATA_DIR` | Chrome user data directory | Auto-detected |
+| `CHROME_PROFILE_NAME` | Chrome profile name | `InstagramBot` |
 
-### ChatGPT Integration
+## 📁 Content Structure
 
-When enabled, ChatGPT will:
-- Enhance your text to be more engaging
-- Add relevant hashtags
-- Maintain the original message intent
-- Make content more Instagram-friendly
-
-## Usage Examples 💡
-
-### Basic Usage
-
-```bash
-# Post content for current month immediately
-python instagram_poster.py post-now
-
-# Start scheduler (posts daily at configured time)
-python instagram_poster.py schedule
+```
+content/
+├── 1/                  # January
+│   ├── captions.csv    # Captions file
+│   ├── image1.jpg      # Images
+│   ├── image2.png
+│   └── ...
+├── 2/                  # February
+│   ├── captions.csv
+│   └── ...
+└── ...                 # Other months (3-12)
 ```
 
-### Content Organization
+### CSV Format
 
-**Example for March (folder `3`):**
-```
-content/3/
-├── beach_sunset.jpg
-├── mountain_view.png
-├── vacation_post.txt      # "Amazing sunset at the beach! 🌅"
-└── adventure_post.txt     # "Mountain adventures are the best!"
+Each month's `captions.csv` should contain one caption per line:
+```csv
+"First amazing post for January! 🌟 #january #content"
+"Second incredible post! ✨ #instagram #amazing"
+"Third fantastic post! 🚀 #social #media"
 ```
 
-The script will randomly combine:
-- `beach_sunset.jpg` + `vacation_post.txt`, OR
-- `beach_sunset.jpg` + `adventure_post.txt`, OR
-- `mountain_view.png` + `vacation_post.txt`, OR
-- `mountain_view.png` + `adventure_post.txt`
+## 🎯 API Endpoints
 
-### Running as a Server
+### Content Management
+- `GET /` - Dashboard
+- `GET /month/<int:month_num>` - Month detail page
+- `POST /upload_images/<int:month_num>` - Upload images
+- `POST /upload_csv/<int:month_num>` - Upload captions CSV
 
-For continuous operation on a server:
+### Posting
+- `POST /post_now` - Post content immediately
 
-```bash
-# Using screen (recommended for servers)
-screen -S instagram_poster
-python instagram_poster.py schedule
-# Press Ctrl+A, then D to detach
+### Scheduler Management
+- `GET /api/scheduler/settings` - Get scheduler settings
+- `POST /api/scheduler/settings` - Update scheduler settings
+- `GET /api/scheduler/status` - Get scheduler status
+- `POST /api/scheduler/start` - Start scheduler command
 
-# Using nohup
-nohup python instagram_poster.py schedule > poster.log 2>&1 &
+### Statistics
+- `GET /api/stats` - Get all months statistics
+- `GET /api/stats?month=<num>` - Get specific month stats
+
+## 🛠️ Advanced Features
+
+### Multiple Images per Post
+- Configure 1-10 images per post via web interface
+- Images are selected randomly from the current month's folder
+- Each post uses a sequential caption from the CSV file
+
+### Smart Content Selection
+- **Images**: Random selection to keep content fresh
+- **Captions**: Sequential order for consistent messaging
+- **Tracking**: Prevents duplicate content posting
+
+### ChatGPT Enhancement
+When enabled, captions are enhanced with AI for better engagement:
+```python
+# Original caption
+"Great sunset photo"
+
+# Enhanced caption
+"Witnessing this breathtaking sunset reminds me why I love photography 📸✨ There's something magical about golden hour that never gets old! 🌅 #sunset #photography #goldenhour #nature #peaceful"
 ```
 
-## Monitoring 📊
+## 🔄 Workflow Example
 
-### Log Files
+### Daily Automated Posting (Every 4 Hours)
 
-- `instagram_poster.log`: Application logs
-- `posted_content.json`: Tracks posted content to prevent duplicates
+1. **6:00 AM** - Post with 2 random images + sequential caption #1
+2. **10:00 AM** - Post with 3 random images + sequential caption #2  
+3. **2:00 PM** - Post with 1 random image + sequential caption #3
+4. **6:00 PM** - Post with 2 random images + sequential caption #4
+5. **10:00 PM** - Post with 4 random images + sequential caption #5
 
-### Log Levels
+### Manual Posting via Web Interface
 
-The script logs:
-- ✅ Successful posts
-- ⚠️ Warnings (missing content, etc.)
-- ❌ Errors (login failures, API issues)
-- ℹ️ Info (startup, scheduling)
+1. Visit dashboard at http://localhost:5000
+2. Click "Post Now" on current month
+3. Select number of images (1-5)
+4. Content posts immediately
 
-## Troubleshooting 🔧
+## 📊 Statistics & Tracking
+
+The web interface provides comprehensive statistics:
+- **Images uploaded** per month
+- **Captions available** per month  
+- **Posts used** vs available
+- **Progress tracking** with visual progress bars
+- **Last post timestamp** for each month
+
+## 🎨 Web Interface Features
+
+### Beautiful Dashboard
+- **Monthly overview** with visual statistics
+- **Progress bars** showing posting progress
+- **Current month highlighting**
+- **Quick actions** for immediate posting
+
+### Month Management
+- **Drag & drop file uploads**
+- **Image gallery** with previews
+- **Caption management** with CSV support
+- **Real-time statistics** updates
+
+### Settings Panel
+- **Scheduler configuration** with visual controls
+- **Status monitoring** with real-time updates
+- **Environment documentation**
+- **One-click scheduler start**
+
+## 🚨 Troubleshooting
 
 ### Common Issues
 
-**1. Login Failed**
-```
-Error: Failed to login to Instagram
-```
-- Check username/password in `.env`
-- Instagram may require 2FA - use app passwords
-- Try logging in manually first
+1. **Chrome Profile Not Set Up**
+   ```bash
+   # Run setup first (if available)
+   python setup_chrome.py
+   ```
 
-**2. No Content Found**
-```
-Warning: No folder found for current month
-```
-- Ensure folder exists (e.g., `content/5/` for May)
-- Check folder contains both images and text files
+2. **No Content Available**
+   ```bash
+   # Create sample structure
+   python instagram_poster.py create-sample
+   # Then add your own images and captions
+   ```
 
-**3. Image Upload Failed**
-```
-Error: Error posting to Instagram
-```
-- Check image format (JPG, PNG, WEBP)
-- Ensure image isn't corrupted
-- Check Instagram API limits
+3. **Scheduler Not Posting**
+   - Check settings via web interface
+   - Ensure scheduler is enabled
+   - Verify content is available for current month
+   - Check logs in `instagram_poster.log`
 
-**4. ChatGPT Not Working**
-```
-Error: Error enhancing text with ChatGPT
-```
-- Verify OpenAI API key in `.env`
-- Check API quota/billing
-- Set `USE_CHATGPT=false` to disable
+4. **Image Upload Issues**
+   - Supported formats: JPG, PNG, GIF, WebP
+   - Maximum file size: 16MB per image
+   - Ensure proper file permissions
 
-### Instagram API Limits
+### Logs
 
-- **Posts per day**: ~50-100 (varies by account)
-- **Rate limiting**: Built-in delays between requests
-- **Account age**: Newer accounts have stricter limits
-
-### Best Practices
-
-1. **Start Small**: Test with a few posts before full automation
-2. **Vary Content**: Use different images and texts
-3. **Monitor Logs**: Check logs regularly for issues
-4. **Backup**: Keep backups of your content and `posted_content.json`
-5. **Security**: Never share your `.env` file
-
-## File Structure 📁
-
-```
-instagram_api/
-├── instagram_poster.py     # Main application
-├── setup.py               # Setup script
-├── requirements.txt       # Python dependencies
-├── .env.example          # Environment template
-├── .env                  # Your credentials (create this)
-├── README.md             # This file
-├── content/              # Your content directory
-│   ├── 1/               # January
-│   ├── 2/               # February
-│   └── ...
-├── instagram_poster.log  # Application logs
-└── posted_content.json   # Posted content tracking
+Check logs for debugging:
+```bash
+tail -f instagram_poster.log
 ```
 
-## Security 🔐
+## 🔮 Future Enhancements
 
-- **Never commit `.env`** to version control
-- **Use strong passwords** for Instagram
-- **Enable 2FA** on Instagram account
-- **Rotate API keys** regularly
-- **Monitor account activity** for unusual behavior
+- **Instagram Stories** support
+- **Reels automation** 
+- **Advanced scheduling** (specific times, days)
+- **Analytics integration**
+- **Multiple account support**
+- **Content templates**
+- **Hashtag optimization**
 
-## Contributing 🤝
+## 📝 License
 
-Feel free to submit issues and enhancement requests!
-
-## License 📄
-
-This project is for educational purposes. Please comply with Instagram's Terms of Service and API guidelines.
+This project is for educational purposes. Make sure to comply with Instagram's Terms of Service when using automation tools.
 
 ---
 
-**⚠️ Disclaimer**: Use responsibly and in compliance with Instagram's Terms of Service. The authors are not responsible for any account restrictions or violations. # automate-inst
+**Built with ❤️ using Selenium, Flask, and modern web technologies**
