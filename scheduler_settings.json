@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "num_images": 4,
+  "num_images": 2,
   "post_interval_hours": 4,
   "use_sequential_images": true,
   "chatgpt_enabled": false,

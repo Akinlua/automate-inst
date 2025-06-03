@@ -1,7 +1,12 @@
 # Environment variables and credentials
-.env
-*.env
+# .env
+# *.env
 node_modules/
+image_order.json
+scheduler_errors.json
+scheduler_errors.log
+scheduler_settings.json
+old/
 
 # Instagram session files
 session.json

@@ -233,6 +233,8 @@ class InstagramPoster:
             options.add_argument('--ignore-ssl-errors')
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
+            options.add_argument("--headless")
+
 
             self.driver = uc.Chrome(version_main=136, options=options)
             # self.driver = webdriver.Chrome(options=chrome_options)
@@ -502,14 +504,14 @@ class InstagramPoster:
         """Add caption to the contenteditable div"""
         try:
             # Use class selector for caption div
-            caption_element = self.wait.until(EC.element_to_be_clickable((
-                By.CSS_SELECTOR, "div.xw2csxc.x1odjw0f.x1n2onr6.x1hnll1o.xpqswwc.xl565be.x5dp1im.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1w2wdq1.xen30ot.x1swvt13.x1pi30zi.xh8yej3.x5n08af.notranslate"
-            )))
+            # caption_element = self.wait.until(EC.element_to_be_clickable((
+            #     By.CSS_SELECTOR, "div.xw2csxc.x1odjw0f.x1n2onr6.x1hnll1o.xpqswwc.xl565be.x5dp1im.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1w2wdq1.xen30ot.x1swvt13.x1pi30zi.xh8yej3.x5n08af.notranslate"
+            # )))
             
             # Click on the element to focus it
-            caption_element.click()
-            logger.info("Clicked on caption area")
-            time.sleep(1)
+            # caption_element.click()
+            # logger.info("Clicked on caption area")
+            # time.sleep(1)
 
             # Use arguments to pass the caption safely (no string interpolation)
             script = """
@@ -1113,7 +1115,8 @@ class InstagramPoster:
                     #     logger.info(f"Rescheduled to post every 2 hours (interval: {current_interval}h)")
                     # else:
                         # Every hour or more frequent
-                    schedule.every().minute.do(self.post_monthly_content)
+                    # schedule.every().minute.do(self.post_monthly_content)
+                    schedule.every(current_interval).hours.do(self.post_monthly_content)
                     logger.info(f"Rescheduled to post every hour (interval: {current_interval}h)")
                     
                     last_interval = current_interval

@@ -1,6 +1,3 @@
-2025/06/03-20:57:49.066 7937e Reusing MANIFEST /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/Local Storage/leveldb/MANIFEST-000001
-2025/06/03-20:57:49.071 7937e Recovering log #20
-2025/06/03-20:57:49.072 7937e Reusing old log /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/Local Storage/leveldb/000020.log 
-2025/06/03-20:58:34.668 79380 Level-0 table #23: started
-2025/06/03-20:58:34.672 79380 Level-0 table #23: 18139 bytes OK
-2025/06/03-20:58:34.674 79380 Delete type=0 #20
+2025/06/03-23:20:34.442 912c3 Reusing MANIFEST /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/Local Storage/leveldb/MANIFEST-000001
+2025/06/03-23:20:34.445 912c3 Recovering log #29
+2025/06/03-23:20:34.445 912c3 Reusing old log /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/Local Storage/leveldb/000029.log 
