@@ -1,0 +1,78 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+chrome_setup.log
+instagram_poster.log
+vnc_setup.log
+
+# Chrome profile (will be recreated in container)
+chrome_profile_instagram/
+
+# Runtime files
+posted_content.json
+image_order.json
+scheduler_settings.json
+scheduler_errors.json
+
+# Test files
+test_*.py
+
+# Documentation
+*.md
+!README.md
+
+# Old files
+old/
+
+# Downloads
+downloads/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# VNC files
+.vnc/
+vnc_session_*
+vnc_passwords/
+
+# Development files
+docker-compose.yml
+.env
+.env.example
+
+# GitHub
+.github/ 

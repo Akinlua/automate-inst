@@ -1,302 +1,251 @@
-# Instagram Auto Poster 📱
+# 📸 Instagram Auto Poster
 
-**Professional Instagram automation tool with Selenium and beautiful web interface**
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://docker.com)
+[![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![VNC](https://img.shields.io/badge/VNC-Enabled-purple.svg)](docs/VNC_INTEGRATION.md)
 
-## 🎯 Key Features
+A comprehensive Instagram automation tool that allows you to schedule and automatically post content to Instagram. Features a modern web interface, VNC remote access for manual intervention, and robust error handling.
 
-- **🌟 Beautiful Web Interface** - Modern Flask-based dashboard for easy management
-- **⏰ Smart Scheduler** - Automated posting every 4 hours (configurable 1-24 hours)
-- **📊 CSV-Based Content** - Organized monthly content with CSV captions
-- **🖼️ Multiple Images** - Support for 1-10 images per post (configurable)
-- **🤖 ChatGPT Integration** - AI-enhanced captions for better engagement
-- **🔄 No Duplicates** - Advanced tracking to avoid reposting content
-- **📱 Mobile Responsive** - Works perfectly on desktop and mobile
-- **⚙️ Easy Configuration** - Web-based settings management
+## ✨ Features
+
+- 🤖 **Automated Instagram Posting** - Schedule posts with images and captions
+- 🌐 **Modern Web Interface** - Clean, responsive dashboard for content management
+- 🖥️ **VNC Remote Access** - Handle 2FA, CAPTCHA, and manual login when needed
+- 🔄 **Smart Error Handling** - Automatic fallback to manual options when automation fails
+- 📊 **Content Management** - Upload, organize, and schedule your posts
+- 🎨 **AI-Powered Captions** - Optional ChatGPT integration for caption enhancement
+- 🐳 **Docker Ready** - One-click deployment with full containerization
+- 🚀 **GitHub Actions** - Automated CI/CD pipeline for VPS deployment
+- 📱 **Mobile Responsive** - Access your dashboard from any device
+- 🔒 **Secure Configuration** - Environment-based credential management
 
 ## 🚀 Quick Start
 
-### 1. Installation
+### Option 1: One-Click VPS Deployment (Recommended)
+
+```bash
+# SSH to your VPS and run:
+curl -fsSL https://raw.githubusercontent.com/your-username/instagram-auto-poster/main/deploy_vps.sh | bash
+```
+
+This script will:
+- ✅ Install Docker and dependencies
+- ✅ Configure firewall settings
+- ✅ Clone and set up the application
+- ✅ Configure environment variables
+- ✅ Start all services
+- ✅ Provide access URLs and credentials
+
+### Option 2: Manual Docker Deployment
+
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd instagram_api
+git clone https://github.com/your-username/instagram-auto-poster.git
+cd instagram-auto-poster
 
-# Install dependencies
-pip install -r requirements.txt
+# Configure environment
+cp .env.example .env
+nano .env  # Add your Instagram credentials
+
+# Deploy with Docker
+docker-compose up -d --build
 ```
 
-### 2. Setup Environment
-Create a `.env` file:
-```env
-# Basic Settings
-CONTENT_DIR=content
-USE_CHATGPT=true
-OPENAI_API_KEY=your_openai_api_key_here
+### Option 3: GitHub Actions Auto-Deployment
 
-# Chrome Settings (optional - auto-detected)
-CHROME_PROFILE_PATH=/path/to/chrome/profile
-CHROME_USER_DATA_DIR=/path/to/chrome/user/data
-CHROME_PROFILE_NAME=InstagramBot
-```
+1. Fork this repository
+2. Set up GitHub Secrets:
+   - `VPS_HOST`: Your server IP
+   - `VPS_USERNAME`: SSH username
+   - `VPS_SSH_KEY`: Private SSH key
+3. Push to `main` branch - automatic deployment!
 
-### 3. Launch Web Interface
-```bash
-python run.py
-```
-Visit **http://localhost:5000** to access the dashboard
+## 📊 Dashboard Preview
 
-### 4. Setup Content Structure
-```bash
-python instagram_poster.py create-sample
-```
+Access your dashboard at `http://your-server:5002`
 
-## 📋 Usage Guide
+- **📋 Main Dashboard**: Upload and schedule posts
+- **⚙️ Settings**: Configure Instagram login and posting schedule
+- **🖥️ VNC Access**: Remote desktop for manual intervention
+- **📈 Analytics**: Track posting history and performance
 
-### 🌐 Web Interface (Recommended)
+## 🛠️ System Requirements
 
-1. **Start the web server:**
-   ```bash
-   python run.py
-   ```
+### Minimum VPS Specifications
+- **OS**: Ubuntu 20.04+ or similar Linux distribution
+- **RAM**: 2GB (4GB+ recommended)
+- **CPU**: 2+ cores
+- **Storage**: 10GB+ free space
+- **Network**: Stable internet connection
 
-2. **Access the dashboard:** http://localhost:5000
-
-3. **Manage content by month:**
-   - Upload images for each month
-   - Upload CSV files with captions
-   - View progress and statistics
-   - Post content immediately
-
-4. **Configure scheduler:**
-   - Go to Settings page
-   - Set number of images per post (1-10)
-   - Configure posting interval (1-24 hours, default: 4 hours)
-   - Enable/disable automatic posting
-
-### ⏰ Background Scheduler
-
-Start the automated posting service:
-```bash
-python run_scheduler.py
-```
-
-This will:
-- Post content every 4 hours (or your configured interval)
-- Use the number of images setting from web interface
-- Select images randomly and captions sequentially
-- Track used content to avoid duplicates
-
-### 📱 Command Line Usage
-
-```bash
-# Create sample structure
-python instagram_poster.py create-sample
-
-# Post immediately
-python instagram_poster.py post-now
-
-# Run scheduler (deprecated - use run_scheduler.py)
-python instagram_poster.py schedule
-```
+### Included Software (via Docker)
+- Chrome browser with automation drivers
+- VNC server with web interface
+- Python 3.8+ with all dependencies
+- Flask web framework
+- Selenium automation tools
 
 ## 🔧 Configuration
 
-### Scheduler Settings
+### Environment Variables (.env)
 
-Configure via web interface at `/settings` or using API:
+```env
+# Instagram credentials
+INSTAGRAM_USERNAME=your_username
+INSTAGRAM_PASSWORD=your_password
 
-```bash
-# Get current settings
-curl http://localhost:5000/api/scheduler/settings
+# VNC configuration
+VNC_PASSWORD=your_secure_password
+VNC_DISPLAY=:1
+VNC_PORT=5901
+VNC_WEB_PORT=6080
 
-# Update settings
-curl -X POST http://localhost:5000/api/scheduler/settings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "num_images": 3,
-    "post_interval_hours": 6,
-    "enabled": true
-  }'
+# OpenAI integration (optional)
+OPENAI_API_KEY=sk-your-api-key
+USE_CHATGPT=true
+
+# Posting schedule
+POST_HOUR=12
+POST_MINUTE=0
+CONTENT_DIR=/app/content
 ```
 
-**Available Settings:**
-- `num_images`: Number of images per post (1-10)
-- `post_interval_hours`: Posting interval in hours (1-24)
-- `enabled`: Enable/disable automatic posting
+### Access Points
 
-### Environment Variables
+After deployment, access your application at:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CONTENT_DIR` | Content directory path | `content` |
-| `USE_CHATGPT` | Enable ChatGPT enhancement | `false` |
-| `OPENAI_API_KEY` | Your OpenAI API key | - |
-| `CHROME_PROFILE_PATH` | Chrome profile path | Auto-detected |
-| `CHROME_USER_DATA_DIR` | Chrome user data directory | Auto-detected |
-| `CHROME_PROFILE_NAME` | Chrome profile name | `InstagramBot` |
+- **Web Interface**: `http://your-server:5002`
+- **Settings Page**: `http://your-server:5002/settings`
+- **VNC Web Access**: `http://your-server:6080`
+- **Health Check**: `http://your-server:5002/health`
 
-## 📁 Content Structure
+## 🔒 Security Features
 
-```
-content/
-├── 1/                  # January
-│   ├── captions.csv    # Captions file
-│   ├── image1.jpg      # Images
-│   ├── image2.png
-│   └── ...
-├── 2/                  # February
-│   ├── captions.csv
-│   └── ...
-└── ...                 # Other months (3-12)
-```
+- 🔐 **Environment-based credentials** - No hardcoded passwords
+- 🛡️ **Firewall configuration** - Only necessary ports exposed
+- 🔑 **SSH key authentication** - Secure server access
+- 📝 **Audit logging** - Track all posting activities
+- 🚫 **Root user protection** - Runs with minimal privileges
 
-### CSV Format
+## 🎯 Use Cases
 
-Each month's `captions.csv` should contain one caption per line:
-```csv
-"First amazing post for January! 🌟 #january #content"
-"Second incredible post! ✨ #instagram #amazing"
-"Third fantastic post! 🚀 #social #media"
-```
+- **Content Creators**: Schedule posts across multiple accounts
+- **Businesses**: Maintain consistent social media presence
+- **Marketing Agencies**: Manage client Instagram accounts
+- **Personal Use**: Automate your Instagram posting workflow
 
-## 🎯 API Endpoints
+## 🔄 Workflow
 
-### Content Management
-- `GET /` - Dashboard
-- `GET /month/<int:month_num>` - Month detail page
-- `POST /upload_images/<int:month_num>` - Upload images
-- `POST /upload_csv/<int:month_num>` - Upload captions CSV
-
-### Posting
-- `POST /post_now` - Post content immediately
-
-### Scheduler Management
-- `GET /api/scheduler/settings` - Get scheduler settings
-- `POST /api/scheduler/settings` - Update scheduler settings
-- `GET /api/scheduler/status` - Get scheduler status
-- `POST /api/scheduler/start` - Start scheduler command
-
-### Statistics
-- `GET /api/stats` - Get all months statistics
-- `GET /api/stats?month=<num>` - Get specific month stats
-
-## 🛠️ Advanced Features
-
-### Multiple Images per Post
-- Configure 1-10 images per post via web interface
-- Images are selected randomly from the current month's folder
-- Each post uses a sequential caption from the CSV file
-
-### Smart Content Selection
-- **Images**: Random selection to keep content fresh
-- **Captions**: Sequential order for consistent messaging
-- **Tracking**: Prevents duplicate content posting
-
-### ChatGPT Enhancement
-When enabled, captions are enhanced with AI for better engagement:
-```python
-# Original caption
-"Great sunset photo"
-
-# Enhanced caption
-"Witnessing this breathtaking sunset reminds me why I love photography 📸✨ There's something magical about golden hour that never gets old! 🌅 #sunset #photography #goldenhour #nature #peaceful"
-```
-
-## 🔄 Workflow Example
-
-### Daily Automated Posting (Every 4 Hours)
-
-1. **6:00 AM** - Post with 2 random images + sequential caption #1
-2. **10:00 AM** - Post with 3 random images + sequential caption #2  
-3. **2:00 PM** - Post with 1 random image + sequential caption #3
-4. **6:00 PM** - Post with 2 random images + sequential caption #4
-5. **10:00 PM** - Post with 4 random images + sequential caption #5
-
-### Manual Posting via Web Interface
-
-1. Visit dashboard at http://localhost:5000
-2. Click "Post Now" on current month
-3. Select number of images (1-5)
-4. Content posts immediately
-
-## 📊 Statistics & Tracking
-
-The web interface provides comprehensive statistics:
-- **Images uploaded** per month
-- **Captions available** per month  
-- **Posts used** vs available
-- **Progress tracking** with visual progress bars
-- **Last post timestamp** for each month
-
-## 🎨 Web Interface Features
-
-### Beautiful Dashboard
-- **Monthly overview** with visual statistics
-- **Progress bars** showing posting progress
-- **Current month highlighting**
-- **Quick actions** for immediate posting
-
-### Month Management
-- **Drag & drop file uploads**
-- **Image gallery** with previews
-- **Caption management** with CSV support
-- **Real-time statistics** updates
-
-### Settings Panel
-- **Scheduler configuration** with visual controls
-- **Status monitoring** with real-time updates
-- **Environment documentation**
-- **One-click scheduler start**
+1. **Upload Content**: Add images and captions through web interface
+2. **Schedule Posts**: Set posting times and dates
+3. **Automated Login**: System attempts Instagram login
+4. **Smart Fallback**: If automation fails, VNC access provided
+5. **Manual Override**: Handle 2FA/CAPTCHA through remote desktop
+6. **Post Publishing**: Content published at scheduled times
+7. **Status Tracking**: Monitor success/failure in dashboard
 
 ## 🚨 Troubleshooting
 
-### Common Issues
+### Instagram Login Issues
+- Use VNC web interface at `http://your-server:6080`
+- Navigate to Instagram manually
+- Handle 2FA/CAPTCHA challenges
+- Return to web interface and refresh
 
-1. **Chrome Profile Not Set Up**
-   ```bash
-   # Run setup first (if available)
-   python setup_chrome.py
-   ```
-
-2. **No Content Available**
-   ```bash
-   # Create sample structure
-   python instagram_poster.py create-sample
-   # Then add your own images and captions
-   ```
-
-3. **Scheduler Not Posting**
-   - Check settings via web interface
-   - Ensure scheduler is enabled
-   - Verify content is available for current month
-   - Check logs in `instagram_poster.log`
-
-4. **Image Upload Issues**
-   - Supported formats: JPG, PNG, GIF, WebP
-   - Maximum file size: 16MB per image
-   - Ensure proper file permissions
-
-### Logs
-
-Check logs for debugging:
+### Container Issues
 ```bash
-tail -f instagram_poster.log
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# Restart services
+docker-compose restart
 ```
 
-## 🔮 Future Enhancements
+### Common Solutions
+- **Memory issues**: Increase VPS RAM or restart container
+- **Login failures**: Clear Instagram cookies in VNC browser
+- **Network issues**: Check firewall and port accessibility
+- **Permission errors**: Ensure proper Docker group membership
 
-- **Instagram Stories** support
-- **Reels automation** 
-- **Advanced scheduling** (specific times, days)
-- **Analytics integration**
-- **Multiple account support**
-- **Content templates**
-- **Hashtag optimization**
+## 📚 Documentation
 
-## 📝 License
+- 📖 [Deployment Guide](DEPLOYMENT_GUIDE.md) - Comprehensive setup instructions
+- 🖥️ [VNC Integration](docs/VNC_INTEGRATION.md) - Remote access documentation
+- 🔧 [API Reference](docs/API.md) - Development and integration guide
+- 🐛 [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
 
-This project is for educational purposes. Make sure to comply with Instagram's Terms of Service when using automation tools.
+## 🔄 Updates & Maintenance
+
+### Auto-updates via GitHub Actions
+- Push changes to main branch
+- Automatic testing and deployment
+- Zero-downtime updates
+
+### Manual Updates
+```bash
+cd ~/instagram-auto-poster
+git pull
+docker-compose down
+docker-compose up -d --build
+```
+
+### Backup & Restore
+```bash
+# Backup
+tar -czf backup-$(date +%Y%m%d).tar.gz content/ logs/ .env
+
+# Restore
+tar -xzf backup-YYYYMMDD.tar.gz
+docker-compose restart
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## ⚠️ Disclaimer
+
+This tool is for educational and legitimate business purposes only. Please:
+- Respect Instagram's Terms of Service
+- Use appropriate rate limiting
+- Avoid spammy behavior
+- Comply with local laws and regulations
+
+## 🆘 Support
+
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-username/instagram-auto-poster/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/your-username/instagram-auto-poster/discussions)
+- 📖 **Documentation**: [Project Wiki](https://github.com/your-username/instagram-auto-poster/wiki)
+- 💬 **Community**: [Discord Server](https://discord.gg/your-server)
+
+## 🙏 Acknowledgments
+
+- [Selenium](https://selenium.dev/) - Web automation framework
+- [Flask](https://flask.palletsprojects.com/) - Web framework
+- [Docker](https://docker.com) - Containerization platform
+- [VNC](https://www.realvnc.com/) - Remote desktop technology
 
 ---
 
-**Built with ❤️ using Selenium, Flask, and modern web technologies**
+<div align="center">
+
+**🚀 Ready to automate your Instagram posting?**
+
+[Quick Deploy](#-quick-start) • [Documentation](DEPLOYMENT_GUIDE.md) • [Support](#-support)
+
+⭐ Star this repo if it helps you!
+
+</div>

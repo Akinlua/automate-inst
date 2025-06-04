@@ -1352,6 +1352,35 @@ def start_local_chrome_setup():
             'error': str(e)
         }), 500
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Docker"""
+    try:
+        # Basic health checks
+        health_status = {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'services': {
+                'flask': True,
+                'vnc_available': False
+            }
+        }
+        
+        # Check VNC availability if possible
+        try:
+            from vnc_setup import vnc_manager
+            health_status['services']['vnc_available'] = vnc_manager.check_system_compatibility()
+        except:
+            pass
+            
+        return jsonify(health_status), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
 if __name__ == '__main__':
     # Create upload folder if it doesn't exist
     UPLOAD_FOLDER.mkdir(exist_ok=True)

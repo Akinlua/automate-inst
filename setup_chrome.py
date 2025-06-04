@@ -97,7 +97,7 @@ class ChromeProfileSetup:
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
 
-            # options.add_argument("--headless")
+            options.add_argument("--headless")
 
             self.driver = uc.Chrome(version_main=136, options=options)
             self.wait = WebDriverWait(self.driver, 10)

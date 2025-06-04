@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  instagram-auto-poster:
+    build: .
+    container_name: instagram-auto-poster
+    restart: unless-stopped
+    ports:
+      - "5002:5002"  # Flask app
+      - "6080:6080"  # VNC web interface
+      - "5901:5901"  # VNC direct access
+    environment:
+      # Instagram credentials (set these in .env file)
+      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME:-}
+      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD:-}
+      
+      # OpenAI API key (optional)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      
+      # VNC configuration
+      - VNC_PASSWORD=${VNC_PASSWORD:-instagram123}
+      - VNC_DISPLAY=:1
+      - VNC_PORT=5901
+      - VNC_WEB_PORT=6080
+      
+      # Flask configuration
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+      - PYTHONUNBUFFERED=1
+      
+      # Content directory
+      - CONTENT_DIR=/app/content
+      
+      # Posting configuration
+      - POST_HOUR=${POST_HOUR:-12}
+      - POST_MINUTE=${POST_MINUTE:-0}
+      - USE_CHATGPT=${USE_CHATGPT:-false}
+      
+      # Display configuration
+      - DISPLAY=:1
+      
+    volumes:
+      # Persist content, logs, and Chrome profile
+      - ./content:/app/content
+      - ./logs:/app/logs
+      - chrome_profile:/app/chrome_profile_instagram
+      - posted_content:/app/posted_content.json
+      - image_order:/app/image_order.json
+      - scheduler_settings:/app/scheduler_settings.json
+      - scheduler_errors:/app/scheduler_errors.json
+      - vnc_profile:/app/vnc_profile
+      
+    networks:
+      - instagram-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# Named volumes for data persistence
+volumes:
+  chrome_profile:
+    driver: local
+  posted_content:
+    driver: local
+  image_order:
+    driver: local
+  scheduler_settings:
+    driver: local
+  scheduler_errors:
+    driver: local
+  vnc_profile:
+    driver: local
+  
+# Custom network
+networks:
+  instagram-network:
+    driver: bridge 
