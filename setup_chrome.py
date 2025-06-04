@@ -99,7 +99,7 @@ class ChromeProfileSetup:
 
             options.add_argument("--headless")
 
-            self.driver = uc.Chrome(version_main=136, options=options)
+            self.driver = uc.Chrome(options=options)
             self.wait = WebDriverWait(self.driver, 10)
             
             logger.info("Chrome driver setup successful with custom profile")

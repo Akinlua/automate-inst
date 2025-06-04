@@ -86,7 +86,7 @@ class ChromeProfileSetup:
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
 
-            self.driver = uc.Chrome(version_main=136, options=options)
+            self.driver = uc.Chrome(options=options)
 
             # self.driver = webdriver.Chrome(options=chrome_options)
             # self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")

@@ -10,6 +10,19 @@ services:
       - "6080:6080"    # VNC web interface
       - "5901:5901"    # VNC direct access
     
+    # Chrome/Selenium optimizations
+    shm_size: 2gb  # Increase shared memory for Chrome
+    security_opt:
+      - seccomp:unconfined  # Required for Chrome sandboxing in Docker
+    
+    # Resource limits to prevent Chrome from consuming all memory
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+        reservations:
+          memory: 1g
+    
     environment:
       # Instagram credentials
       - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME:-your_instagram_username}
@@ -39,6 +52,10 @@ services:
       
       # Display configuration
       - DISPLAY=:1
+      
+      # Chrome/Docker optimizations
+      - CHROME_DISABLE_GPU=true
+      - CHROME_NO_SANDBOX=true
       
     volumes:
       # Persist content, logs, and Chrome profile
