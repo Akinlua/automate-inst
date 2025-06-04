@@ -38,6 +38,7 @@ RUN apt-get update && \
     tightvncserver \
     websockify \
     xterm \
+    sudo \
     fonts-dejavu-core \
     fonts-liberation \
     libnss3 \
@@ -130,6 +131,9 @@ COPY --chown=appuser:appuser . .
 RUN mkdir -p /app/content /app/uploads /app/logs /app/chrome_profile_instagram /app/.vnc && \
     chown -R appuser:appuser /app
 
+# Give appuser sudo privileges for fixing permissions
+RUN echo "appuser ALL=(ALL) NOPASSWD: /bin/chown, /bin/chmod" >> /etc/sudoers
+
 # Copy and set up VNC configuration
 RUN mkdir -p /home/appuser/.vnc && \
     echo "#!/bin/bash\nfluxbox &" > /home/appuser/.vnc/xstartup && \
@@ -149,6 +153,11 @@ RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
 echo "Starting Instagram Auto Poster Docker Container..."\n\
+\n\
+# Fix permissions for mounted directories\n\
+echo "Setting up directory permissions..."\n\
+sudo chown -R appuser:appuser /app/content /app/logs /app/uploads 2>/dev/null || true\n\
+chmod -R 755 /app/content /app/logs /app/uploads 2>/dev/null || true\n\
 \n\
 # Ensure JSON files exist and are proper files (not directories)\n\
 echo "Initializing application files..."\n\

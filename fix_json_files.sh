@@ -57,6 +57,14 @@ for file in posted_content.json scheduler_settings.json image_order.json schedul
     fi
 done
 
+print_info "Creating and setting up necessary directories..."
+mkdir -p content logs uploads
+
+print_info "Setting proper permissions..."
+chmod 755 content logs uploads
+# Set ownership to match Docker container user (UID 1000)
+sudo chown -R 1000:1000 content logs uploads 2>/dev/null || chown -R $(id -u):$(id -g) content logs uploads
+
 print_info "Rebuilding and starting containers..."
 docker-compose up -d --build
 

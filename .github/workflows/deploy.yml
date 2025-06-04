@@ -146,8 +146,11 @@ jobs:
             fi
           done
           
-          # Set proper permissions
+          # Set proper permissions for bind mount directories
+          echo "Setting proper permissions..."
           chmod 755 content logs uploads
+          # Set ownership to match Docker container user (UID 1000)
+          sudo chown -R 1000:1000 content logs uploads 2>/dev/null || chown -R $(id -u):$(id -g) content logs uploads
           
           # Stop existing container if running
           echo "Stopping existing containers..."
