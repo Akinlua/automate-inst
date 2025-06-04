@@ -476,6 +476,101 @@ done
             logger.error(f"Failed to start websockify: {e}")
             return False
             
+    def _clean_chrome_profile(self, profile_path: str):
+        """Clean problematic Chrome profile data"""
+        try:
+            # Files/folders to clean for fresh Instagram session
+            cleanup_items = [
+                "Local Storage/leveldb",
+                "Session Storage",
+                "Network",
+                "WebRTC Logs",
+                "Pepper Data",
+                "Service Worker",
+                "IndexedDB",
+                "Cache",
+                "GPUCache",
+                "Application Cache",
+                "Cookies",
+                "Cookies-journal",
+                "Web Data",
+                "Web Data-journal"
+            ]
+            
+            for item in cleanup_items:
+                item_path = os.path.join(profile_path, item)
+                if os.path.exists(item_path):
+                    if os.path.isfile(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        import shutil
+                        shutil.rmtree(item_path, ignore_errors=True)
+                        
+            logger.info("Chrome profile cleaned for fresh Instagram session")
+            
+        except Exception as e:
+            logger.warning(f"Failed to clean Chrome profile: {e}")
+    
+    def _configure_chrome_profile(self, profile_path: str):
+        """Configure Chrome profile for better Instagram compatibility"""
+        try:
+            # Create profile directory
+            os.makedirs(profile_path, exist_ok=True)
+            
+            # Clean any problematic data first
+            self._clean_chrome_profile(profile_path)
+            
+            # Create preferences file for better stealth
+            prefs = {
+                "profile": {
+                    "default_content_setting_values": {
+                        "notifications": 2,  # Block notifications
+                        "geolocation": 2,    # Block location
+                        "media_stream": 2    # Block camera/mic
+                    },
+                    "managed_default_content_settings": {
+                        "images": 1
+                    }
+                },
+                "security": {
+                    "ask_for_password": False
+                },
+                "credentials_enable_service": False,
+                "password_manager_enabled": False,
+                "autofill": {
+                    "enabled": False
+                },
+                "dns_prefetching": {
+                    "enabled": False
+                },
+                "safebrowsing": {
+                    "enabled": False
+                },
+                "search": {
+                    "suggest_enabled": False
+                },
+                "alternate_error_pages": {
+                    "enabled": False
+                },
+                "hardware": {
+                    "audio_capture_enabled": False,
+                    "video_capture_enabled": False
+                },
+                "default_apps_install_state": 2,
+                "hide_web_store_icon": True
+            }
+            
+            # Write preferences
+            import json
+            prefs_file = os.path.join(profile_path, "Preferences")
+            with open(prefs_file, 'w') as f:
+                json.dump(prefs, f, indent=2)
+                
+            logger.info("Chrome profile configured for Instagram compatibility")
+            
+        except Exception as e:
+            logger.warning(f"Failed to configure Chrome profile: {e}")
+    
     def start_chrome_in_vnc(self, profile_path: str) -> bool:
         """Start Chrome browser inside VNC session"""
         try:
@@ -485,19 +580,29 @@ done
             env = os.environ.copy()
             env['DISPLAY'] = self.vnc_display
             
-            # Chrome command with options
+            # Create profile directory if it doesn't exist
+            os.makedirs(profile_path, exist_ok=True)
+            
+            # Configure Chrome profile for better compatibility
+            self._configure_chrome_profile(profile_path)
+            
+            # Instagram-friendly Chrome command with minimal flags
             chrome_cmd = [
                 'google-chrome',
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-web-security',
-                '--ignore-certificate-errors',
-                '--ignore-ssl-errors',
-                '--ignore-certificate-errors-spki-list',
-                '--ignore-certificate-errors',
+                '--no-sandbox',  # Required for containers
+                '--disable-dev-shm-usage',  # Required for limited memory
+                '--disable-gpu',  # Better for VNC
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-features=TranslateUI',
+                '--disable-extensions-except=',
+                '--disable-default-apps',
+                '--window-size=1280,720',
+                '--start-maximized',
                 f'--user-data-dir={profile_path}',
-                'https://www.instagram.com/'
+                'https://www.instagram.com/accounts/login/'
             ]
             
             # Try Chrome, fallback to Chromium
@@ -517,7 +622,7 @@ done
             logger.info(f"Chrome started with PID: {self.chrome_pid}")
             
             # Give Chrome time to start
-            time.sleep(3)
+            time.sleep(5)  # Increased wait time
             
             # Check if Chrome is still running
             if process.poll() is None:
@@ -657,6 +762,29 @@ done
                 'error': f'VNC setup failed: {str(e)}'
             }
 
+    def restart_chrome_fresh(self, profile_path: str) -> bool:
+        """Restart Chrome with completely fresh session"""
+        try:
+            logger.info("Restarting Chrome with fresh session...")
+            
+            # Stop current Chrome if running
+            if self.chrome_pid:
+                try:
+                    os.kill(self.chrome_pid, signal.SIGTERM)
+                    time.sleep(2)
+                except ProcessLookupError:
+                    pass
+            
+            # Force clean the profile
+            self._clean_chrome_profile(profile_path)
+            
+            # Start Chrome again
+            return self.start_chrome_in_vnc(profile_path)
+            
+        except Exception as e:
+            logger.error(f"Failed to restart Chrome: {e}")
+            return False
+
 # Global VNC manager instance
 vnc_manager = VNCServerManager()
 
@@ -675,6 +803,10 @@ def get_vnc_access_info() -> Dict[str, Any]:
 def stop_vnc_session():
     """Stop VNC session"""
     vnc_manager.stop_vnc_server()
+
+def restart_chrome_fresh_session(profile_path: str) -> bool:
+    """Restart Chrome with fresh session - callable from web interface"""
+    return vnc_manager.restart_chrome_fresh(profile_path)
 
 if __name__ == "__main__":
     # Test VNC setup
