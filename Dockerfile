@@ -159,21 +159,12 @@ echo "Setting up directory permissions..."\n\
 sudo chown -R appuser:appuser /app/content /app/logs /app/uploads 2>/dev/null || true\n\
 chmod -R 755 /app/content /app/logs /app/uploads 2>/dev/null || true\n\
 \n\
-# Ensure JSON files exist and are proper files (not directories)\n\
-echo "Initializing application files..."\n\
+# Remove any directories that should be files (but dont create the files)\n\
+echo "Cleaning up any directory versions of JSON files..."\n\
 for file in posted_content.json scheduler_settings.json image_order.json scheduler_errors.json; do\n\
     if [ -d "$file" ]; then\n\
-        echo "Removing directory $file and creating as file"\n\
+        echo "Removing directory $file (will be created as file by app)"\n\
         rm -rf "$file"\n\
-    fi\n\
-    if [ ! -f "$file" ]; then\n\
-        case "$file" in\n\
-            "posted_content.json") echo "{}" > "$file" ;;\n\
-            "scheduler_settings.json") echo "{\"enabled\": false, \"hour\": 12, \"minute\": 0}" > "$file" ;;\n\
-            "image_order.json") echo "[]" > "$file" ;;\n\
-            "scheduler_errors.json") echo "[]" > "$file" ;;\n\
-        esac\n\
-        echo "Created $file"\n\
     fi\n\
 done\n\
 \n\
