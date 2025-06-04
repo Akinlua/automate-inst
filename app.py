@@ -17,13 +17,21 @@ from werkzeug.utils import secure_filename
 from instagram_poster import InstagramPoster
 from setup_integration import web_setup
 import pytz
+logger = logging.getLogger(__name__)
+
+# VNC Support
+try:
+    from vnc_setup import start_vnc_chrome_session, get_vnc_status, get_vnc_access_info, stop_vnc_session
+    VNC_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"VNC support not available: {e}")
+    VNC_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this in production
@@ -1199,6 +1207,150 @@ def check_login_status():
     except Exception as e:
         logger.error(f"Error checking login status: {e}")
         return jsonify({'error': str(e)}), 500
+
+# VNC Manual Login API Endpoints
+@app.route('/api/vnc/start', methods=['POST'])
+def start_vnc_session():
+    """Start VNC session for manual Instagram login"""
+    try:
+        if not VNC_AVAILABLE:
+            return jsonify({
+                'success': False, 
+                'error': 'VNC support is not available on this system'
+            }), 500
+            
+        # Get or create profile path
+        profile_path = os.getenv('CHROME_PROFILE_PATH')
+        if not profile_path:
+            profile_path = os.path.join(os.getcwd(), "chrome_profile_instagram")
+            
+        logger.info(f"Starting VNC session with profile: {profile_path}")
+        result = start_vnc_chrome_session(profile_path)
+        
+        if result['success']:
+            logger.info("VNC session started successfully")
+            return jsonify(result)
+        else:
+            logger.error(f"VNC session failed: {result.get('error')}")
+            return jsonify(result), 500
+            
+    except Exception as e:
+        logger.error(f"Error starting VNC session: {e}")
+        return jsonify({
+            'success': False, 
+            'error': f'Failed to start VNC session: {str(e)}'
+        }), 500
+
+@app.route('/api/vnc/status')
+def get_vnc_session_status():
+    """Get current VNC session status"""
+    try:
+        if not VNC_AVAILABLE:
+            return jsonify({
+                'vnc_available': False,
+                'error': 'VNC support not available'
+            })
+            
+        status = get_vnc_status()
+        access_info = get_vnc_access_info()
+        
+        return jsonify({
+            'vnc_available': True,
+            'status': status,
+            'access_info': access_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting VNC status: {e}")
+        return jsonify({
+            'vnc_available': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/vnc/stop', methods=['POST'])
+def stop_vnc_session_endpoint():
+    """Stop VNC session"""
+    try:
+        if not VNC_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'VNC support not available'
+            }), 500
+            
+        stop_vnc_session()
+        
+        return jsonify({
+            'success': True,
+            'message': 'VNC session stopped successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error stopping VNC session: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/vnc/check')
+def check_vnc_availability():
+    """Check if VNC is available and system compatibility"""
+    try:
+        return jsonify({
+            'vnc_available': VNC_AVAILABLE,
+            'system_info': {
+                'platform': os.name,
+                'python_version': f"{os.sys.version_info.major}.{os.sys.version_info.minor}",
+                'current_user': os.getenv('USER', 'unknown')
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error checking VNC availability: {e}")
+        return jsonify({
+            'vnc_available': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/setup/chrome_local', methods=['POST'])
+def start_local_chrome_setup():
+    """Start local Chrome setup using setup_chromev1.py"""
+    try:
+        import subprocess
+        import threading
+        
+        def run_chrome_setup():
+            """Run Chrome setup in background thread"""
+            try:
+                # Run setup_chromev1.py
+                result = subprocess.run([
+                    'python3', 'setup_chromev1.py'
+                ], capture_output=True, text=True, timeout=300)  # 5 minute timeout
+                
+                logger.info(f"Chrome setup completed with return code: {result.returncode}")
+                if result.stdout:
+                    logger.info(f"Chrome setup output: {result.stdout}")
+                if result.stderr:
+                    logger.warning(f"Chrome setup errors: {result.stderr}")
+                    
+            except subprocess.TimeoutExpired:
+                logger.warning("Chrome setup timed out after 5 minutes")
+            except Exception as e:
+                logger.error(f"Error running Chrome setup: {e}")
+        
+        # Start Chrome setup in background
+        setup_thread = threading.Thread(target=run_chrome_setup, daemon=True)
+        setup_thread.start()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Local Chrome setup started. Check your screen for the Chrome window.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting local Chrome setup: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     # Create upload folder if it doesn't exist

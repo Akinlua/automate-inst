@@ -7,6 +7,7 @@ scheduler_errors.json
 scheduler_errors.log
 scheduler_settings.json
 old/
+chrome_profile_instagram/
 
 # Instagram session files
 session.json
@@ -22,6 +23,18 @@ posted_content.json
 # Content directory (contains user's images and texts)
 content/
 uploads/
+
+# VNC related files and directories
+.vnc/
+*.vnc
+vnc_passwords/
+vnc_session_*
+*.pid
+*.log
+noVNC/
+websockify/
+vnc_chrome_*.log
+test_vnc_output.log
 
 # Python
 __pycache__/

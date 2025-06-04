@@ -785,19 +785,112 @@ function displayLoginStatus(data) {
 
 function displayLoginError(message) {
     const statusSection = document.getElementById('loginStatusSection');
+    
+    // Ensure all sections are hidden first
+    hideAllSections();
+    
+    // Show the status section
+    statusSection.style.display = 'block';
+    
     statusSection.innerHTML = `
         <div class="alert alert-danger">
             <h6 class="alert-heading mb-2">
                 <i class="fas fa-times-circle me-2"></i>
-                Error
+                Automated Login Failed
             </h6>
-            <p class="mb-2">${message}</p>
-            <button type="button" class="btn btn-outline-primary" onclick="checkInstagramLoginStatus()">
-                <i class="fas fa-sync me-1"></i>
-                Retry
-            </button>
+            <p class="mb-3"><strong>Error:</strong> ${message}</p>
+            <p class="mb-3 text-muted">Don't worry! You can try automated login again or use one of the manual login options below.</p>
+            
+            <div class="d-flex flex-column gap-3">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary" onclick="checkInstagramLoginStatus()">
+                        <i class="fas fa-sync me-1"></i>
+                        Retry Automated Login
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="showManualLoginOptions()" id="showManualOptionsBtn">
+                        <i class="fas fa-tools me-1"></i>
+                        Show Manual Login Options
+                    </button>
+                </div>
+                
+                <!-- Manual Login Options (hidden by default) -->
+                <div id="manualLoginOptions" style="display: none;" class="p-3 border rounded bg-light">
+                    <h6 class="mb-3">
+                        <i class="fas fa-hand-paper me-2"></i>
+                        Manual Login Alternatives
+                    </h6>
+                    <p class="text-muted mb-3">If automated login keeps failing, you can manually log in using one of these options:</p>
+                    
+                    <!-- VNC Option -->
+                    <div class="mb-3 p-3 border rounded bg-white">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-desktop me-2 text-primary"></i>
+                                    Remote Desktop Login (VNC) - Recommended for Servers
+                                </h6>
+                                <p class="text-muted mb-2 small">
+                                    Start a remote desktop session where you can manually log in to Instagram through a browser.
+                                    Perfect for VPS/server environments. You'll get a web-based interface to control the browser.
+                                </p>
+                                <div id="vncStatus" class="mb-2"></div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="startVNCSession()" id="startVNCBtn">
+                                <i class="fas fa-play me-1"></i>
+                                Start VNC Session
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="checkVNCStatus()" id="checkVNCBtn">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Check Status
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="stopVNCSession()" id="stopVNCBtn" style="display: none;">
+                                <i class="fas fa-stop me-1"></i>
+                                Stop VNC
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Chrome Option -->
+                    <div class="mb-3 p-3 border rounded bg-white">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-chrome me-2 text-warning"></i>
+                                    Local Chrome Setup - For Local Development
+                                </h6>
+                                <p class="text-muted mb-2 small">
+                                    Run the setup script to open Chrome locally on your machine.
+                                    Best for local development environments where you have direct access to the screen.
+                                </p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-warning btn-sm" onclick="startLocalChrome()">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Run Local Setup
+                        </button>
+                    </div>
+                    
+                    <!-- Instructions -->
+                    <div class="alert alert-info mt-3">
+                        <h6 class="mb-2"><i class="fas fa-lightbulb me-2"></i>After Manual Login:</h6>
+                        <ul class="mb-0 small">
+                            <li>Complete the Instagram login process manually</li>
+                            <li>Handle any 2FA, CAPTCHA, or verification challenges</li>
+                            <li>Once logged in, return here and refresh the page</li>
+                            <li>Your login session will be saved for future automated posts</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
+    
+    // Automatically check VNC availability when error is shown
+    setTimeout(() => {
+        checkVNCAvailability();
+    }, 500);
 }
 
 function showLoginForm() {
@@ -868,7 +961,19 @@ function startInstagramLogin() {
 function startLoginProgressMonitoring() {
     updateProgress(20, 'Monitoring login progress...');
     
+    let monitoringStartTime = Date.now();
+    const maxMonitoringTime = 300000; // 5 minutes timeout
+    
     loginCheckInterval = setInterval(() => {
+        // Check for timeout
+        if (Date.now() - monitoringStartTime > maxMonitoringTime) {
+            console.log('Login monitoring timeout reached');
+            stopLoginProgressMonitoring();
+            displayLoginError('Login process timed out. Please try again or use manual login options.');
+            resetLoginForm();
+            return;
+        }
+        
         fetch('/api/login/status')
             .then(response => response.json())
             .then(data => {
@@ -877,7 +982,8 @@ function startLoginProgressMonitoring() {
             .catch(error => {
                 console.error('Progress monitoring error:', error);
                 stopLoginProgressMonitoring();
-                displayLoginError('Error monitoring login progress');
+                displayLoginError('Error monitoring login progress. Please try again.');
+                resetLoginForm();
             });
     }, 2000); // Check every 2 seconds
 }
@@ -890,6 +996,8 @@ function stopLoginProgressMonitoring() {
 }
 
 function handleLoginProgress(status) {
+    console.log('Login progress status:', status); // Debug log
+    
     if (!status.running && status.success) {
         // Login completed successfully
         stopLoginProgressMonitoring();
@@ -902,10 +1010,12 @@ function handleLoginProgress(status) {
         }, 1500);
         
     } else if (!status.running && status.error) {
-        // Login failed
+        // Login failed - show error with manual options
         stopLoginProgressMonitoring();
-        displayLoginError(status.error);
-        resetLoginForm();
+        setTimeout(() => {
+            displayLoginError(status.error);
+            resetLoginForm();
+        }, 500); // Small delay to ensure proper display
         
     } else if (status.requires_verification) {
         // Email verification required
@@ -915,6 +1025,13 @@ function handleLoginProgress(status) {
     } else if (status.running) {
         // Update progress based on step
         updateProgressByStep(status.step, status.message);
+    } else if (status.step === 'failed') {
+        // Handle failed step specifically
+        stopLoginProgressMonitoring();
+        setTimeout(() => {
+            displayLoginError(status.error || 'Login process failed');
+            resetLoginForm();
+        }, 500);
     }
 }
 
@@ -1152,5 +1269,336 @@ const loginStyles = `
 
 // Inject styles
 document.head.insertAdjacentHTML('beforeend', loginStyles);
+
+// VNC Management Functions
+function showManualLoginOptions() {
+    const manualOptions = document.getElementById('manualLoginOptions');
+    const showBtn = document.getElementById('showManualOptionsBtn');
+    
+    if (manualOptions && showBtn) {
+        if (manualOptions.style.display === 'none') {
+            manualOptions.style.display = 'block';
+            showBtn.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Hide Manual Login Options';
+            showBtn.classList.remove('btn-warning');
+            showBtn.classList.add('btn-outline-warning');
+            
+            // Check VNC availability when showing options
+            checkVNCAvailability();
+            
+            // Scroll the options into view
+            setTimeout(() => {
+                manualOptions.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        } else {
+            manualOptions.style.display = 'none';
+            showBtn.innerHTML = '<i class="fas fa-tools me-1"></i>Show Manual Login Options';
+            showBtn.classList.remove('btn-outline-warning');
+            showBtn.classList.add('btn-warning');
+        }
+    }
+}
+
+function checkVNCAvailability() {
+    fetch('/api/vnc/check')
+        .then(response => response.json())
+        .then(data => {
+            const vncStatus = document.getElementById('vncStatus');
+            if (data.vnc_available) {
+                vncStatus.innerHTML = `
+                    <div class="alert alert-success alert-sm py-1 px-2 mb-0">
+                        <i class="fas fa-check-circle me-1"></i>
+                        VNC is available on this system
+                    </div>
+                `;
+                // Also check current VNC status
+                checkVNCStatus();
+            } else {
+                vncStatus.innerHTML = `
+                    <div class="alert alert-warning alert-sm py-1 px-2 mb-0">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        VNC not available: ${data.error || 'System not compatible'}
+                    </div>
+                `;
+                // Disable VNC buttons
+                document.getElementById('startVNCBtn').disabled = true;
+                document.getElementById('checkVNCBtn').disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error checking VNC availability:', error);
+            const vncStatus = document.getElementById('vncStatus');
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Error checking VNC availability
+                </div>
+            `;
+        });
+}
+
+function startVNCSession() {
+    const startBtn = document.getElementById('startVNCBtn');
+    const checkBtn = document.getElementById('checkVNCBtn');
+    const stopBtn = document.getElementById('stopVNCBtn');
+    const vncStatus = document.getElementById('vncStatus');
+    
+    // Update button state
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Starting VNC...';
+    
+    // Show loading status
+    vncStatus.innerHTML = `
+        <div class="alert alert-info alert-sm py-1 px-2 mb-0">
+            <i class="fas fa-spinner fa-spin me-1"></i>
+            Setting up VNC server and Chrome session...
+        </div>
+    `;
+    
+    fetch('/api/vnc/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const accessInfo = data.access_info;
+            vncStatus.innerHTML = `
+                <div class="alert alert-success alert-sm py-1 px-2 mb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-check-circle me-1"></i>
+                            <strong>VNC Session Active!</strong>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="copyVNCInfo()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="mt-2 small">
+                        <div><strong>Web Access:</strong> <a href="${accessInfo.web_url}" target="_blank" class="text-decoration-none">${accessInfo.web_url}</a></div>
+                        <div><strong>Password:</strong> <code>${accessInfo.vnc_password}</code></div>
+                        <div class="text-muted mt-1">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Chrome is running at Instagram login page. Log in manually and close the VNC session when done.
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Update button states
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            
+            // Show success notification
+            showNotification('VNC session started! Click the web access link to open the remote desktop.', 'success');
+            
+        } else {
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Failed to start VNC: ${data.error}
+                </div>
+            `;
+            showNotification(`VNC session failed: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting VNC session:', error);
+        vncStatus.innerHTML = `
+            <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                <i class="fas fa-times-circle me-1"></i>
+                Network error starting VNC session
+            </div>
+        `;
+        showNotification('Network error starting VNC session', 'error');
+    })
+    .finally(() => {
+        // Reset start button
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start VNC Session';
+    });
+}
+
+function checkVNCStatus() {
+    const vncStatus = document.getElementById('vncStatus');
+    const startBtn = document.getElementById('startVNCBtn');
+    const stopBtn = document.getElementById('stopVNCBtn');
+    
+    fetch('/api/vnc/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.vnc_available && data.status) {
+                const status = data.status;
+                const accessInfo = data.access_info;
+                
+                if (status.vnc_running && status.websockify_running) {
+                    vncStatus.innerHTML = `
+                        <div class="alert alert-success alert-sm py-1 px-2 mb-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    <strong>VNC Active</strong>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="copyVNCInfo()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="mt-2 small">
+                                <div><strong>Web Access:</strong> <a href="${accessInfo.web_url}" target="_blank" class="text-decoration-none">${accessInfo.web_url}</a></div>
+                                <div><strong>Password:</strong> <code>${accessInfo.vnc_password}</code></div>
+                                <div class="text-muted mt-1">
+                                    VNC: ${status.vnc_running ? '✓' : '✗'} | 
+                                    Web: ${status.websockify_running ? '✓' : '✗'} | 
+                                    Chrome: ${status.chrome_running ? '✓' : '✗'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
+                } else {
+                    vncStatus.innerHTML = `
+                        <div class="alert alert-warning alert-sm py-1 px-2 mb-0">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            VNC service partially running or stopped
+                        </div>
+                    `;
+                    startBtn.style.display = 'inline-block';
+                    stopBtn.style.display = 'none';
+                }
+            } else {
+                vncStatus.innerHTML = `
+                    <div class="alert alert-secondary alert-sm py-1 px-2 mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        VNC session not active
+                    </div>
+                `;
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error checking VNC status:', error);
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Error checking VNC status
+                </div>
+            `;
+        });
+}
+
+function stopVNCSession() {
+    const startBtn = document.getElementById('startVNCBtn');
+    const stopBtn = document.getElementById('stopVNCBtn');
+    const vncStatus = document.getElementById('vncStatus');
+    
+    stopBtn.disabled = true;
+    stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Stopping...';
+    
+    fetch('/api/vnc/stop', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            vncStatus.innerHTML = `
+                <div class="alert alert-secondary alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    VNC session stopped successfully
+                </div>
+            `;
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            showNotification('VNC session stopped successfully', 'success');
+        } else {
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Failed to stop VNC: ${data.error}
+                </div>
+            `;
+            showNotification(`Failed to stop VNC: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error stopping VNC session:', error);
+        vncStatus.innerHTML = `
+            <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                <i class="fas fa-times-circle me-1"></i>
+                Network error stopping VNC session
+            </div>
+        `;
+        showNotification('Network error stopping VNC session', 'error');
+    })
+    .finally(() => {
+        stopBtn.disabled = false;
+        stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop VNC';
+    });
+}
+
+function copyVNCInfo() {
+    fetch('/api/vnc/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.vnc_available && data.access_info) {
+                const info = data.access_info;
+                const textToCopy = `VNC Access Information:
+Web URL: ${info.web_url}
+Password: ${info.vnc_password}
+VNC Port: ${info.vnc_port}
+Display: ${info.vnc_display}`;
+                
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showNotification('VNC connection info copied to clipboard!', 'success');
+                }).catch(() => {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = textToCopy;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showNotification('VNC connection info copied to clipboard!', 'success');
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error copying VNC info:', error);
+            showNotification('Error copying VNC info', 'error');
+        });
+}
+
+function startLocalChrome() {
+    showNotification('Starting local Chrome setup... Check your terminal/console for the Chrome window.', 'info');
+    
+    // Make API call to trigger local Chrome setup
+    fetch('/api/setup/chrome_local', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Local Chrome setup completed! Check if login was successful.', 'success');
+            // Refresh login status after some delay
+            setTimeout(() => {
+                checkInstagramLoginStatus();
+            }, 5000);
+        } else {
+            showNotification(`Local Chrome setup failed: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting local Chrome:', error);
+        showNotification('Network error starting local Chrome setup', 'error');
+    });
+}
 </script>
 {% endblock %} 
