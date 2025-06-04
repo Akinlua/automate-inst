@@ -692,8 +692,10 @@ done
                 "webrtc.nonproxied_udp_enabled": False
             }
             options.add_experimental_option("prefs", prefs)
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option('useAutomationExtension', False)
+            
+            # Note: excludeSwitches and useAutomationExtension may not be compatible with all versions
+            # options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            # options.add_experimental_option('useAutomationExtension', False)
             
             # Set environment for undetected-chromedriver
             original_display = os.environ.get('DISPLAY')
@@ -701,7 +703,22 @@ done
             
             try:
                 # Start undetected Chrome with version detection
-                driver = uc.Chrome(options=options, version_main=None)
+                # Try with minimal options first for compatibility
+                try:
+                    driver = uc.Chrome(options=options, version_main=None)
+                except Exception as e:
+                    logger.warning(f"Failed with full options, trying minimal setup: {e}")
+                    
+                    # Create minimal options for better compatibility
+                    minimal_options = uc.ChromeOptions()
+                    minimal_options.add_argument('--no-sandbox')
+                    minimal_options.add_argument('--disable-dev-shm-usage')
+                    minimal_options.add_argument(f"--user-data-dir={profile_path}")
+                    minimal_options.add_argument(f'--display={self.vnc_display}')
+                    minimal_options.add_argument('--window-size=1280,720')
+                    
+                    # Try with minimal options
+                    driver = uc.Chrome(options=minimal_options, version_main=None)
                 
                 # Wait before navigating to Instagram
                 time.sleep(3)
