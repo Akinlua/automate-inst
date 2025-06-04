@@ -191,38 +191,210 @@ done
             logger.warning(f"Error killing existing VNC servers: {e}")
             
     def start_vnc_server(self) -> bool:
-        """Start VNC server"""
+        """Start VNC server with fallback options"""
         try:
             logger.info(f"Starting VNC server on display {self.vnc_display}...")
             
-            # Start VNC server
+            # Try multiple VNC server approaches
+            vnc_attempts = [
+                self._try_tightvnc_with_fontpath(),
+                self._try_tightvnc_basic(),
+                self._try_tigervnc(),
+                self._try_x11vnc()
+            ]
+            
+            for attempt_func in vnc_attempts:
+                if attempt_func():
+                    logger.info(f"VNC server started successfully on display {self.vnc_display}")
+                    
+                    # Get VNC process ID
+                    self._find_vnc_pid()
+                    
+                    # Start websockify for web access
+                    self._start_websockify()
+                    
+                    return True
+                    
+            logger.error("All VNC server startup attempts failed")
+            return False
+                
+        except Exception as e:
+            logger.error(f"Error starting VNC server: {e}")
+            return False
+    
+    def _try_tightvnc_with_fontpath(self) -> bool:
+        """Try TightVNC with explicit font paths"""
+        try:
+            logger.info("Attempting TightVNC with font paths...")
+            
+            # Common font paths to try
+            font_paths = [
+                "/usr/share/fonts/X11/misc/",
+                "/usr/share/fonts/X11/75dpi/",
+                "/usr/share/fonts/X11/100dpi/",
+                "/usr/share/fonts/truetype/",
+                "/usr/share/fonts/TTF/",
+                "/usr/share/fonts/OTF/",
+                "/usr/share/fonts/dejavu/",
+                "/usr/share/fonts/liberation/"
+            ]
+            
+            # Build font path string
+            existing_paths = []
+            for path in font_paths:
+                if os.path.exists(path):
+                    existing_paths.append(path)
+            
+            if existing_paths:
+                fontpath = ",".join(existing_paths)
+                
+                cmd = [
+                    'tightvncserver',
+                    self.vnc_display,
+                    '-geometry', '1280x720',
+                    '-depth', '24',
+                    '-passwd', str(self.passwd_file),
+                    '-fp', fontpath
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                
+                if result.returncode == 0:
+                    logger.info("TightVNC started successfully with font paths")
+                    return True
+                else:
+                    logger.warning(f"TightVNC with font paths failed: {result.stderr}")
+                    
+        except Exception as e:
+            logger.warning(f"TightVNC with font paths attempt failed: {e}")
+            
+        return False
+    
+    def _try_tightvnc_basic(self) -> bool:
+        """Try basic TightVNC without font path"""
+        try:
+            logger.info("Attempting basic TightVNC...")
+            
             cmd = [
                 'tightvncserver',
                 self.vnc_display,
                 '-geometry', '1280x720',
                 '-depth', '24',
-                '-passwd', str(self.passwd_file)
+                '-passwd', str(self.passwd_file),
+                '-nolisten', 'tcp'
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.returncode == 0:
-                logger.info(f"VNC server started on display {self.vnc_display}")
-                
-                # Get VNC process ID
-                self._find_vnc_pid()
-                
-                # Start websockify for web access
-                self._start_websockify()
-                
+                logger.info("Basic TightVNC started successfully")
                 return True
             else:
-                logger.error(f"Failed to start VNC server: {result.stderr}")
-                return False
+                logger.warning(f"Basic TightVNC failed: {result.stderr}")
                 
         except Exception as e:
-            logger.error(f"Error starting VNC server: {e}")
-            return False
+            logger.warning(f"Basic TightVNC attempt failed: {e}")
+            
+        return False
+    
+    def _try_tigervnc(self) -> bool:
+        """Try TigerVNC as alternative"""
+        try:
+            logger.info("Attempting TigerVNC...")
+            
+            # Check if TigerVNC is available
+            if subprocess.run(['which', 'vncserver'], capture_output=True).returncode != 0:
+                logger.warning("TigerVNC not found")
+                return False
+            
+            cmd = [
+                'vncserver',
+                self.vnc_display,
+                '-geometry', '1280x720',
+                '-depth', '24',
+                '-SecurityTypes', 'VncAuth'
+            ]
+            
+            # Set VNC password environment
+            env = os.environ.copy()
+            env['VNC_PASSWORD'] = self.vnc_password
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
+            
+            if result.returncode == 0:
+                logger.info("TigerVNC started successfully")
+                return True
+            else:
+                logger.warning(f"TigerVNC failed: {result.stderr}")
+                
+        except Exception as e:
+            logger.warning(f"TigerVNC attempt failed: {e}")
+            
+        return False
+    
+    def _try_x11vnc(self) -> bool:
+        """Try x11vnc with Xvfb"""
+        try:
+            logger.info("Attempting x11vnc with Xvfb...")
+            
+            # Check if x11vnc is available
+            if subprocess.run(['which', 'x11vnc'], capture_output=True).returncode != 0:
+                logger.warning("x11vnc not found")
+                return False
+                
+            # Start Xvfb first
+            display_num = self.vnc_display.replace(':', '')
+            xvfb_cmd = [
+                'Xvfb',
+                self.vnc_display,
+                '-screen', '0', '1280x720x24',
+                '-ac',
+                '+extension', 'GLX',
+                '+render',
+                '-noreset'
+            ]
+            
+            xvfb_process = subprocess.Popen(xvfb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            time.sleep(2)  # Wait for Xvfb to start
+            
+            # Check if Xvfb started successfully
+            if xvfb_process.poll() is not None:
+                logger.warning("Xvfb failed to start")
+                return False
+            
+            # Start window manager
+            env = os.environ.copy()
+            env['DISPLAY'] = self.vnc_display
+            
+            fluxbox_process = subprocess.Popen(['fluxbox'], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            time.sleep(1)
+            
+            # Start x11vnc
+            x11vnc_cmd = [
+                'x11vnc',
+                '-display', self.vnc_display,
+                '-rfbport', str(self.vnc_port),
+                '-passwd', self.vnc_password,
+                '-shared',
+                '-forever',
+                '-bg'
+            ]
+            
+            result = subprocess.run(x11vnc_cmd, capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                logger.info("x11vnc started successfully")
+                return True
+            else:
+                logger.warning(f"x11vnc failed: {result.stderr}")
+                # Clean up Xvfb if x11vnc failed
+                xvfb_process.terminate()
+                fluxbox_process.terminate()
+                
+        except Exception as e:
+            logger.warning(f"x11vnc attempt failed: {e}")
+            
+        return False
             
     def _find_vnc_pid(self):
         """Find VNC server process ID"""

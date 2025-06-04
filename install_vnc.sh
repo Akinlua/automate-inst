@@ -85,6 +85,8 @@ install_vnc_dependencies() {
         ubuntu|debian)
             apt-get install -y \
                 tightvncserver \
+                tigervnc-standalone-server \
+                tigervnc-common \
                 xvfb \
                 fluxbox \
                 x11vnc \
@@ -93,6 +95,16 @@ install_vnc_dependencies() {
                 firefox \
                 fonts-liberation \
                 fonts-dejavu-core \
+                fonts-dejavu \
+                fonts-dejavu-extra \
+                xfonts-base \
+                xfonts-75dpi \
+                xfonts-100dpi \
+                xfonts-scalable \
+                fonts-noto \
+                fonts-noto-core \
+                xfonts-utils \
+                fontconfig \
                 curl \
                 wget \
                 gnupg \
@@ -111,6 +123,7 @@ install_vnc_dependencies() {
             
             $PKG_MANAGER install -y \
                 tigervnc-server \
+                tightvnc-server \
                 xorg-x11-server-Xvfb \
                 fluxbox \
                 x11vnc \
@@ -118,7 +131,16 @@ install_vnc_dependencies() {
                 xterm \
                 firefox \
                 liberation-fonts \
+                liberation-fonts-common \
                 dejavu-sans-fonts \
+                dejavu-serif-fonts \
+                dejavu-sans-mono-fonts \
+                xorg-x11-fonts-base \
+                xorg-x11-fonts-75dpi \
+                xorg-x11-fonts-100dpi \
+                xorg-x11-fonts-misc \
+                xorg-x11-font-utils \
+                fontconfig \
                 curl \
                 wget \
                 gnupg
@@ -131,10 +153,41 @@ install_vnc_dependencies() {
             info "- fluxbox (window manager)"
             info "- websockify (web VNC client)"
             info "- xterm (terminal emulator)"
-            info "- fonts (liberation, dejavu)"
+            info "- fonts (liberation, dejavu, base fonts)"
             exit 1
             ;;
     esac
+    
+    # Additional font setup
+    setup_fonts
+}
+
+# Setup additional fonts and font caching
+setup_fonts() {
+    log "Setting up fonts and font cache..."
+    
+    # Update font cache
+    if command -v fc-cache &> /dev/null; then
+        fc-cache -fv
+        log "Font cache updated"
+    fi
+    
+    # Create fonts directory if needed
+    mkdir -p /usr/share/fonts/truetype/
+    mkdir -p /usr/share/fonts/X11/misc/
+    
+    # Set proper permissions
+    chmod -R 755 /usr/share/fonts/
+    
+    # Generate fonts.dir if needed
+    if command -v mkfontdir &> /dev/null; then
+        for font_dir in /usr/share/fonts/X11/misc/ /usr/share/fonts/X11/75dpi/ /usr/share/fonts/X11/100dpi/; do
+            if [ -d "$font_dir" ]; then
+                mkfontdir "$font_dir" 2>/dev/null || true
+            fi
+        done
+        log "Font directories indexed"
+    fi
 }
 
 # Install Google Chrome
