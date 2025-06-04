@@ -168,7 +168,7 @@ for file in posted_content.json scheduler_settings.json image_order.json schedul
     fi\n\
     if [ ! -f "$file" ]; then\n\
         case "$file" in\n\
-            "posted_content.json") echo "[]" > "$file" ;;\n\
+            "posted_content.json") echo "{}" > "$file" ;;\n\
             "scheduler_settings.json") echo "{\"enabled\": false, \"hour\": 12, \"minute\": 0}" > "$file" ;;\n\
             "image_order.json") echo "[]" > "$file" ;;\n\
             "scheduler_errors.json") echo "[]" > "$file" ;;\n\
