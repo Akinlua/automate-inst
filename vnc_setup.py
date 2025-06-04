@@ -13,8 +13,18 @@ import subprocess
 import signal
 import psutil
 import threading
+import ssl
+import urllib3
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+# Import undetected-chromedriver for better Instagram compatibility
+try:
+    import undetected_chromedriver as uc
+    UC_AVAILABLE = True
+except ImportError:
+    UC_AVAILABLE = False
+    logging.warning("undetected_chromedriver not available, falling back to regular Chrome")
 
 # Setup logging
 logging.basicConfig(
@@ -36,6 +46,7 @@ class VNCServerManager:
         self.vnc_pid = None
         self.websockify_pid = None
         self.chrome_pid = None
+        self.chrome_driver = None  # Store undetected-chromedriver instance
         
         # VNC configuration
         self.vnc_dir = Path.home() / ".vnc"
@@ -572,9 +583,9 @@ done
             logger.warning(f"Failed to configure Chrome profile: {e}")
     
     def start_chrome_in_vnc(self, profile_path: str) -> bool:
-        """Start Chrome browser inside VNC session"""
+        """Start Chrome browser inside VNC session using undetected-chromedriver"""
         try:
-            logger.info("Starting Chrome browser in VNC session...")
+            logger.info("Starting Chrome browser in VNC session with undetected-chromedriver...")
             
             # Set display for Chrome
             env = os.environ.copy()
@@ -582,6 +593,99 @@ done
             
             # Create profile directory if it doesn't exist
             os.makedirs(profile_path, exist_ok=True)
+            
+            if UC_AVAILABLE:
+                # Use undetected-chromedriver (same as setup_chrome.py)
+                return self._start_undetected_chrome(profile_path, env)
+            else:
+                # Fallback to regular Chrome
+                return self._start_regular_chrome(profile_path, env)
+                
+        except Exception as e:
+            logger.error(f"Failed to start Chrome in VNC: {e}")
+            return False
+    
+    def _start_undetected_chrome(self, profile_path: str, env: dict) -> bool:
+        """Start Chrome using undetected-chromedriver (same config as setup_chrome.py)"""
+        try:
+            logger.info("Using undetected-chromedriver for better Instagram compatibility...")
+            
+            # Clean profile for fresh session
+            self._clean_chrome_profile(profile_path)
+            
+            # Disable SSL warnings (same as setup_chrome.py)
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            ssl._create_default_https_context = ssl._create_unverified_context
+            
+            # Use exact same options as setup_chrome.py
+            options = uc.ChromeOptions()
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_argument(f"--user-data-dir={profile_path}")
+            options.add_argument('--ignore-ssl-errors')
+            options.add_argument('--ignore-certificate-errors')
+            options.add_argument('--allow-running-insecure-content')
+            
+            # Remove headless mode for VNC
+            # options.add_argument("--headless")  # Commented out for VNC
+            
+            # Additional VNC-specific options
+            options.add_argument(f'--display={self.vnc_display}')
+            options.add_argument('--window-size=1280,720')
+            options.add_argument('--start-maximized')
+            
+            # Set environment for undetected-chromedriver
+            original_display = os.environ.get('DISPLAY')
+            os.environ['DISPLAY'] = self.vnc_display
+            
+            try:
+                # Start undetected Chrome
+                driver = uc.Chrome(options=options)
+                
+                # Navigate to Instagram login page
+                driver.get("https://www.instagram.com/accounts/login/")
+                logger.info("Chrome started successfully with undetected-chromedriver")
+                
+                # Store the driver process ID
+                self.chrome_pid = driver.service.process.pid
+                logger.info(f"Chrome PID: {self.chrome_pid}")
+                
+                # Store the driver instance to keep it alive
+                self.chrome_driver = driver
+                
+                # Start a background thread to keep the driver alive
+                def keep_chrome_alive():
+                    try:
+                        while True:
+                            time.sleep(30)
+                            # Check if Chrome is still running
+                            if not psutil.pid_exists(self.chrome_pid):
+                                logger.warning("Chrome process died")
+                                break
+                    except Exception as e:
+                        logger.warning(f"Chrome keepalive thread error: {e}")
+                
+                chrome_thread = threading.Thread(target=keep_chrome_alive, daemon=True)
+                chrome_thread.start()
+                
+                return True
+                
+            finally:
+                # Restore original display
+                if original_display:
+                    os.environ['DISPLAY'] = original_display
+                else:
+                    os.environ.pop('DISPLAY', None)
+                    
+        except Exception as e:
+            logger.error(f"Failed to start undetected Chrome: {e}")
+            return False
+    
+    def _start_regular_chrome(self, profile_path: str, env: dict) -> bool:
+        """Fallback to regular Chrome if undetected-chromedriver is not available"""
+        try:
+            logger.info("Using regular Chrome as fallback...")
             
             # Configure Chrome profile for better compatibility
             self._configure_chrome_profile(profile_path)
@@ -633,7 +737,7 @@ done
                 return False
                 
         except Exception as e:
-            logger.error(f"Failed to start Chrome in VNC: {e}")
+            logger.error(f"Failed to start regular Chrome: {e}")
             return False
             
     def get_access_info(self) -> Dict[str, Any]:
@@ -681,7 +785,16 @@ done
         try:
             logger.info("Stopping VNC server...")
             
-            # Stop Chrome
+            # Stop Chrome driver first
+            if self.chrome_driver:
+                try:
+                    self.chrome_driver.quit()
+                    logger.info("Chrome driver closed")
+                except Exception as e:
+                    logger.warning(f"Error closing Chrome driver: {e}")
+                self.chrome_driver = None
+            
+            # Stop Chrome process
             if self.chrome_pid:
                 try:
                     os.kill(self.chrome_pid, signal.SIGTERM)
@@ -699,6 +812,7 @@ done
                     
             # Stop VNC server
             subprocess.run(['tightvncserver', '-kill', self.vnc_display], capture_output=True)
+            subprocess.run(['vncserver', '-kill', self.vnc_display], capture_output=True)
             logger.info("VNC server stopped")
             
             # Reset PIDs
@@ -767,13 +881,23 @@ done
         try:
             logger.info("Restarting Chrome with fresh session...")
             
-            # Stop current Chrome if running
+            # Stop current Chrome driver if running
+            if self.chrome_driver:
+                try:
+                    self.chrome_driver.quit()
+                    logger.info("Chrome driver closed")
+                except Exception as e:
+                    logger.warning(f"Error closing Chrome driver: {e}")
+                self.chrome_driver = None
+            
+            # Stop current Chrome process if running
             if self.chrome_pid:
                 try:
                     os.kill(self.chrome_pid, signal.SIGTERM)
                     time.sleep(2)
                 except ProcessLookupError:
                     pass
+                self.chrome_pid = None
             
             # Force clean the profile
             self._clean_chrome_profile(profile_path)
