@@ -197,14 +197,18 @@ done
             
             # Try multiple VNC server approaches
             vnc_attempts = [
-                self._try_tightvnc_with_fontpath(),
-                self._try_tightvnc_basic(),
-                self._try_tigervnc(),
-                self._try_x11vnc()
+                self._try_tightvnc_with_fontpath,
+                self._try_tightvnc_basic,
+                self._try_tigervnc,
+                self._try_x11vnc
             ]
             
-            for attempt_func in vnc_attempts:
-                if attempt_func():
+            for i, attempt_func in enumerate(vnc_attempts):
+                logger.info(f"Trying VNC method {i+1}/{len(vnc_attempts)}: {attempt_func.__name__}")
+                success = attempt_func()
+                logger.info(f"Method {attempt_func.__name__} returned: {success}")
+                
+                if success:
                     logger.info(f"VNC server started successfully on display {self.vnc_display}")
                     
                     # Get VNC process ID
@@ -307,25 +311,47 @@ done
                 logger.warning("TigerVNC not found")
                 return False
             
+            # Kill any existing VNC server on this display first
+            try:
+                subprocess.run(['vncserver', '-kill', self.vnc_display], capture_output=True)
+            except:
+                pass
+            
             cmd = [
                 'vncserver',
                 self.vnc_display,
                 '-geometry', '1280x720',
                 '-depth', '24',
-                '-SecurityTypes', 'VncAuth'
+                '-localhost', 'no'
             ]
             
-            # Set VNC password environment
-            env = os.environ.copy()
-            env['VNC_PASSWORD'] = self.vnc_password
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.returncode == 0:
-                logger.info("TigerVNC started successfully")
-                return True
+                # Verify the server is actually running
+                time.sleep(2)  # Give it time to start
+                
+                # Check if VNC process is running
+                vnc_running = False
+                try:
+                    ps_result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+                    if f'Xvnc {self.vnc_display}' in ps_result.stdout or f'Xtigervnc {self.vnc_display}' in ps_result.stdout:
+                        vnc_running = True
+                        logger.info("TigerVNC server verified running")
+                    else:
+                        logger.warning("TigerVNC command succeeded but process not found")
+                except Exception as e:
+                    logger.warning(f"Could not verify TigerVNC process: {e}")
+                
+                if vnc_running:
+                    logger.info("TigerVNC started successfully")
+                    return True
+                else:
+                    logger.warning("TigerVNC failed to start properly")
+                    return False
             else:
                 logger.warning(f"TigerVNC failed: {result.stderr}")
+                return False
                 
         except Exception as e:
             logger.warning(f"TigerVNC attempt failed: {e}")
