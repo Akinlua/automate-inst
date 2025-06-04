@@ -1,11 +1,11 @@
 name: Deploy Instagram Auto Poster
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Allow manual triggering
+  # push:
+  #   branches: [ main, master ]
+  # pull_request:
+  #   branches: [ main, master ]
+  # workflow_dispatch:  # Allow manual triggering
 
 env:
   DOCKER_IMAGE_NAME: instagram-auto-poster
