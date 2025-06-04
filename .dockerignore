@@ -39,7 +39,7 @@ vnc_setup.log
 # Chrome profile (will be recreated in container)
 chrome_profile_instagram/
 
-# Runtime files
+# Runtime files (these will be created during runtime)
 posted_content.json
 image_order.json
 scheduler_settings.json
@@ -64,15 +64,13 @@ downloads/
 tmp/
 temp/
 
-# VNC files
+# VNC files (will be created at runtime)
 .vnc/
 vnc_session_*
 vnc_passwords/
 
-# Development files
-docker-compose.yml
+# Environment files (will be copied separately)
 .env
-.env.example
 
-# GitHub
+# GitHub Actions (not needed in container)
 .github/ 

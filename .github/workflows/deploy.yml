@@ -55,23 +55,28 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Build production Docker image
+    - name: Create deployment package
       run: |
-        docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
-        docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > instagram-auto-poster.tar.gz
+        # Create a deployment directory with all necessary files
+        mkdir -p deploy-package
         
-    - name: Copy files to VPS
+        # Copy all necessary files for deployment
+        cp -r * deploy-package/ 2>/dev/null || true
+        cp -r .env.example deploy-package/
+        cp -r .dockerignore deploy-package/ 2>/dev/null || true
+        
+        # Create deployment archive
+        tar -czf instagram-auto-poster-deploy.tar.gz -C deploy-package .
+        
+    - name: Copy deployment package to VPS
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USERNAME }}
         password: ${{ secrets.VPS_PASSWORD }}
         port: ${{ secrets.VPS_PORT || 22 }}
-        source: "instagram-auto-poster.tar.gz,docker-compose.yml,.env.example,vnc_profile"
-        target: "/home/${{ secrets.VPS_USERNAME }}/instagram-auto-poster/"
+        source: "instagram-auto-poster-deploy.tar.gz"
+        target: "/home/${{ secrets.VPS_USERNAME }}/"
         
     - name: Deploy to VPS
       uses: appleboy/ssh-action@v1.0.3
@@ -81,11 +86,41 @@ jobs:
         password: ${{ secrets.VPS_PASSWORD }}
         port: ${{ secrets.VPS_PORT || 22 }}
         script: |
-          cd /home/${{ secrets.VPS_USERNAME }}/instagram-auto-poster/
+          cd /home/${{ secrets.VPS_USERNAME }}/
           
-          # Load the Docker image
-          echo "Loading Docker image..."
-          docker load < instagram-auto-poster.tar.gz
+          # Create application directory if it doesn't exist
+          mkdir -p instagram-auto-poster
+          
+          # Extract deployment package
+          echo "Extracting deployment package..."
+          tar -xzf instagram-auto-poster-deploy.tar.gz -C instagram-auto-poster/
+          
+          # Navigate to application directory
+          cd instagram-auto-poster/
+          
+          # Verify essential files exist
+          echo "Verifying deployment files..."
+          if [ ! -f "Dockerfile" ]; then
+            echo "❌ Error: Dockerfile not found!"
+            exit 1
+          fi
+          
+          if [ ! -f "docker-compose.yml" ]; then
+            echo "❌ Error: docker-compose.yml not found!"
+            exit 1
+          fi
+          
+          if [ ! -f "app.py" ]; then
+            echo "❌ Error: app.py not found!"
+            exit 1
+          fi
+          
+          if [ ! -f "requirements.txt" ]; then
+            echo "❌ Error: requirements.txt not found!"
+            exit 1
+          fi
+          
+          echo "✅ All essential files verified"
           
           # Create .env file if it doesn't exist
           if [ ! -f .env ]; then
@@ -96,39 +131,54 @@ jobs:
           fi
           
           # Create necessary directories
-          mkdir -p content logs
+          echo "Creating necessary directories..."
+          mkdir -p content logs uploads
+          
+          # Set proper permissions
+          chmod 755 content logs uploads
           
           # Stop existing container if running
-          echo "Stopping existing container..."
+          echo "Stopping existing containers..."
           docker-compose down || true
           
-          # Remove old images to save space
+          # Remove old images to save space (keep last 2 versions)
           echo "Cleaning up old Docker images..."
           docker image prune -f || true
           
-          # Start new container
-          echo "Starting new container..."
-          docker-compose up -d
+          # Build and start new container
+          echo "Building and starting new containers..."
+          docker-compose up -d --build
           
           # Wait for container to be healthy
           echo "Waiting for container to be healthy..."
-          sleep 30
+          sleep 45
           
           # Check if container is running
           if docker-compose ps | grep -q "Up"; then
             echo "✅ Deployment successful!"
+            echo ""
             echo "📱 Instagram Auto Poster is running at:"
-            echo "   Web Interface: http://${{ secrets.VPS_HOST }}:5002"
-            echo "   VNC Web Access: http://${{ secrets.VPS_HOST }}:6080"
-            echo "   Direct VNC: ${{ secrets.VPS_HOST }}:5901"
+            echo "   🌐 Web Interface: http://${{ secrets.VPS_HOST }}:5002"
+            echo "   🖥️ VNC Web Access: http://${{ secrets.VPS_HOST }}:6080"
+            echo "   🔗 Direct VNC: ${{ secrets.VPS_HOST }}:5901"
             echo ""
             echo "🔐 Default VNC Password: instagram123"
-            echo "⚙️  Please configure your Instagram credentials in the settings page"
+            echo "⚙️  Configure your Instagram credentials at: http://${{ secrets.VPS_HOST }}:5002/settings"
+            echo ""
+            echo "🔧 Useful commands:"
+            echo "   Check status: docker-compose ps"
+            echo "   View logs: docker-compose logs -f"
+            echo "   Restart: docker-compose restart"
+            echo ""
           else
             echo "❌ Deployment failed - container is not running"
+            echo "Container status:"
+            docker-compose ps
+            echo ""
+            echo "Container logs:"
             docker-compose logs
             exit 1
           fi
           
-          # Cleanup
-          rm -f instagram-auto-poster.tar.gz 
+          # Cleanup deployment archive
+          rm -f /home/${{ secrets.VPS_USERNAME }}/instagram-auto-poster-deploy.tar.gz 
