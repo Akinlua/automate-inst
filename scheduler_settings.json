@@ -1,7 +1,13 @@
 {
   "enabled": true,
-  "num_images": 2,
+  "num_images": 4,
   "post_interval_hours": 4,
+  "posting_times": [
+    "00:00",
+    "09:00",
+    "13:00",
+    "21:00"
+  ],
   "use_sequential_images": true,
   "chatgpt_enabled": false,
   "chatgpt_api_key": "",

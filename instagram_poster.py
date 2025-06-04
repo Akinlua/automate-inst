@@ -118,7 +118,8 @@ class InstagramPoster:
         default_settings = {
             'enabled': True,
             'num_images': 1,
-            'post_interval_hours': 4,
+            'post_interval_hours': 4,  # Keep for backward compatibility
+            'posting_times': ['09:00', '13:00', '17:00', '21:00'],  # Default posting times
             'use_sequential_images': True,  # New setting for image selection order
             'chatgpt_enabled': False,
             'chatgpt_api_key': '',
@@ -609,8 +610,8 @@ class InstagramPoster:
                 return True
             except Exception as e2:
                 logger.error(f"Fallback Share button selector also failed: {e2}")
-                return False
-
+            return False
+    
     def get_monthly_folders(self) -> List[Path]:
         """Get all monthly folders sorted by number"""
         if not self.content_dir.exists():
@@ -967,25 +968,25 @@ class InstagramPoster:
                 logger.error(error_msg)
                 self.save_scheduler_error(error_msg)
                 return
-            
+        
             folder, images, caption, post_id = content
             current_month = int(folder.name)
-            
+        
             # Enhance text with ChatGPT if enabled
             enhanced_text = self.enhance_text_with_chatgpt(caption)
             print(f"Enhanced text: {enhanced_text}")
-            
+        
             # Add month info to caption
             month_names = [
                 "January", "February", "March", "April", "May", "June",
                 "July", "August", "September", "October", "November", "December"
             ]
             month_name = month_names[current_month - 1]
-            
+        
             final_caption = f"{enhanced_text}\n\n❤️ {month_name} Content\n\n#instagram #monthly #content"
             print(f"Final caption: {final_caption}")
             print(f"Images: {images}")
-            
+        
             # Post to Instagram
             if self.post_to_instagram(images, final_caption):
                 # Mark as posted
@@ -1054,73 +1055,42 @@ class InstagramPoster:
             return []
     
     def run_scheduler(self):
-        """Run the posting scheduler with dynamic settings reload"""
+        """Run the posting scheduler with time-based scheduling"""
         # Clear any existing jobs
         schedule.clear()
         
         # Track current settings to detect changes
-        last_interval = None
+        last_times = None
         
-        logger.info("Scheduler started with dynamic settings reload")
+        logger.info("Scheduler started with time-based scheduling")
         logger.info("Settings will be checked and reloaded every minute")
         
         while True:
             try:
                 # Reload settings to pick up any changes
                 self.settings = self.load_settings()
-                current_interval = self.get_setting('post_interval_hours', 4)
+                current_times = self.get_setting('posting_times', ['09:00', '13:00', '17:00', '21:00'])
                 
                 # Check if scheduler is disabled
                 if not self.get_setting('enabled', True):
                     logger.info("Scheduler is disabled - waiting for re-enable...")
                     schedule.clear()
-                    last_interval = None
+                    last_times = None
                     time.sleep(60)
                     continue
                 
-                # If interval has changed, reschedule
-                if last_interval != current_interval:
+                # If times have changed, reschedule
+                if last_times != current_times:
                     schedule.clear()
                     
-                    # Set up the new schedule based on interval
-                    # if current_interval >= 24:
-                    #     # Daily posting
-                    #     schedule.every().day.at("09:00").do(self.post_monthly_content)
-                    #     logger.info(f"Rescheduled to post daily at 9:00 AM (interval: {current_interval}h)")
-                    # elif current_interval >= 12:
-                    #     # Twice daily
-                    #     schedule.every().day.at("09:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("21:00").do(self.post_monthly_content)
-                    #     logger.info(f"Rescheduled to post twice daily at 9:00 AM and 9:00 PM (interval: {current_interval}h)")
-                    # elif current_interval >= 6:
-                    #     # Four times daily
-                    #     schedule.every().day.at("06:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("12:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("18:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("23:00").do(self.post_monthly_content)
-                    #     logger.info(f"Rescheduled to post 4 times daily (interval: {current_interval}h)")
-                    # elif current_interval >= 4:
-                    #     # 6 times daily
-                    #     schedule.every().day.at("00:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("04:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("08:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("12:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("16:00").do(self.post_monthly_content)
-                    #     schedule.every().day.at("20:00").do(self.post_monthly_content)
-                    #     logger.info(f"Rescheduled to post 6 times daily (interval: {current_interval}h)")
-                    # elif current_interval >= 2:
-                    #     # 12 times daily
-                    #     for hour in range(0, 24, 2):
-                    #         schedule.every().day.at(f"{hour:02d}:00").do(self.post_monthly_content)
-                    #     logger.info(f"Rescheduled to post every 2 hours (interval: {current_interval}h)")
-                    # else:
-                        # Every hour or more frequent
-                    # schedule.every().minute.do(self.post_monthly_content)
-                    schedule.every(current_interval).hours.do(self.post_monthly_content)
-                    logger.info(f"Rescheduled to post every hour (interval: {current_interval}h)")
+                    # Set up the new schedule based on selected times
+                    for posting_time in current_times:
+                        schedule.every().day.at(posting_time).do(self.post_monthly_content)
+                        logger.info(f"Scheduled posting at {posting_time}")
                     
-                    last_interval = current_interval
+                    last_times = current_times[:]  # Copy the list
                     logger.info(f"Current settings: {self.get_setting('num_images', 1)} images per post")
+                    logger.info(f"Posting times: {', '.join(current_times)}")
                 
                 # Run pending jobs
                 schedule.run_pending()
@@ -1200,6 +1170,24 @@ class InstagramPoster:
             self.save_image_order()
             return True
         
+        return False
+    
+    def clear_month_image_order(self, month):
+        """Clear the image order for a specific month"""
+        month_key = f"month_{month}"
+        if month_key in self.image_order:
+            del self.image_order[month_key]
+            self.save_image_order()
+            return True
+        return False
+    
+    def remove_from_month_image_order(self, month, filename):
+        """Remove a specific image from the month's image order"""
+        month_key = f"month_{month}"
+        if month_key in self.image_order and filename in self.image_order[month_key]:
+            self.image_order[month_key].remove(filename)
+            self.save_image_order()
+            return True
         return False
 
 def create_sample_structure():

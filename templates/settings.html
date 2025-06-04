@@ -22,12 +22,12 @@
                 <form id="schedulerForm">
                     <div class="row">
                         <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="numImages" class="form-label">
-                                    <i class="fas fa-images me-1"></i>
+                            <div class="setting-group">
+                                <label class="setting-label">
+                                    <i class="fas fa-images"></i>
                                     Number of Images per Post
                                 </label>
-                                <select class="form-select" id="numImages" name="num_images">
+                                <select id="numImages" class="form-select">
                                     <option value="1">1 image</option>
                                     <option value="2">2 images</option>
                                     <option value="3">3 images</option>
@@ -39,38 +39,39 @@
                                     <option value="9">9 images</option>
                                     <option value="10">10 images</option>
                                 </select>
-                                <div class="form-text">Select how many images to include in each automated post</div>
+                                <small class="text-muted">Select how many images to include in each automated post</small>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="postInterval" class="form-label">
-                                    <i class="fas fa-hourglass-half me-1"></i>
-                                    Posting Interval (Hours)
+                            <div class="setting-group">
+                                <label class="setting-label">
+                                    <i class="fas fa-toggle-on"></i>
+                                    Enable Automatic Posting
                                 </label>
-                                <select class="form-select" id="postInterval" name="post_interval_hours">
-                                    <option value="1">Every 1 hour</option>
-                                    <option value="2">Every 2 hours</option>
-                                    <option value="3">Every 3 hours</option>
-                                    <option value="4">Every 4 hours</option>
-                                    <option value="6">Every 6 hours</option>
-                                    <option value="8">Every 8 hours</option>
-                                    <option value="12">Every 12 hours</option>
-                                    <option value="24">Every 24 hours</option>
-                                </select>
-                                <div class="form-text">How often the scheduler should post content</div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="schedulerEnabled">
+                                    <label class="form-check-label" for="schedulerEnabled">
+                                        When enabled, the scheduler will automatically post content based on the selected times
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="schedulerEnabled" name="enabled">
-                            <label class="form-check-label" for="schedulerEnabled">
-                                <i class="fas fa-power-off me-1"></i>
-                                Enable Automatic Posting
-                            </label>
-                            <div class="form-text">When enabled, the scheduler will automatically post content based on the interval above</div>
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i class="fas fa-clock"></i>
+                            Posting Times
+                        </label>
+                        <div class="time-selector-container">
+                            <p class="setting-description">Select the times when you want posts to be published automatically</p>
+                            <div class="time-grid" id="timeGrid">
+                                <!-- Times will be populated by JavaScript -->
+                            </div>
+                            <div class="selected-times-display">
+                                <strong>Selected times:</strong>
+                                <span id="selectedTimesDisplay">None selected</span>
+                            </div>
                         </div>
                     </div>
                     
@@ -79,7 +80,7 @@
                             <i class="fas fa-save me-1"></i>
                             Save Settings
                         </button>
-                        <button type="button" class="btn btn-outline-info" onclick="loadSettings()">
+                        <button type="button" class="btn btn-outline-info" onclick="reloadSettings()">
                             <i class="fas fa-sync me-1"></i>
                             Reload Settings
                         </button>
@@ -105,14 +106,6 @@
                         <p class="mt-2 text-muted">Loading scheduler status...</p>
                     </div>
                 </div>
-                
-                <!-- <div class="mt-3">
-                    <button type="button" class="btn btn-success" onclick="startScheduler()">
-                        <i class="fas fa-play me-1"></i>
-                        Start Scheduler
-                    </button>
-                    <small class="text-muted ms-2">Run this to start the background scheduler service</small>
-                </div> -->
             </div>
         </div>
         
@@ -132,8 +125,6 @@
                         <h6>Basic Settings</h6>
                         <ul class="list-unstyled">
                             <li><code>CONTENT_DIR</code> - Content directory path</li>
-                            <!-- <li><code>USE_CHATGPT</code> - Enable ChatGPT enhancement</li> -->
-                            <!-- <li><code>OPENAI_API_KEY</code> - Your OpenAI API key</li> -->
                         </ul>
                     </div>
                     <div class="col-md-6">
@@ -156,154 +147,287 @@
 </div>
 
 <script>
-// Load settings on page load
+let selectedTimes = [];
+
+// Generate time options from 00:00 to 23:00
+function generateTimeOptions() {
+    const timeGrid = document.getElementById('timeGrid');
+    timeGrid.innerHTML = '';
+    
+    for (let hour = 0; hour < 24; hour++) {
+        const timeString = hour.toString().padStart(2, '0') + ':00';
+        const timeOption = document.createElement('div');
+        timeOption.className = 'time-option';
+        timeOption.textContent = timeString;
+        timeOption.dataset.time = timeString;
+        
+        timeOption.addEventListener('click', function() {
+            toggleTimeSelection(timeString, timeOption);
+        });
+        
+        timeGrid.appendChild(timeOption);
+    }
+}
+
+// Toggle time selection
+function toggleTimeSelection(time, element) {
+    const index = selectedTimes.indexOf(time);
+    
+    if (index > -1) {
+        // Remove time
+        selectedTimes.splice(index, 1);
+        element.classList.remove('selected');
+    } else {
+        // Add time
+        selectedTimes.push(time);
+        element.classList.add('selected');
+    }
+    
+    // Sort times
+    selectedTimes.sort();
+    updateSelectedTimesDisplay();
+}
+
+// Update the display of selected times
+function updateSelectedTimesDisplay() {
+    const display = document.getElementById('selectedTimesDisplay');
+    if (selectedTimes.length === 0) {
+        display.textContent = 'None selected';
+        display.style.color = '#6c757d';
+    } else {
+        display.textContent = selectedTimes.join(', ');
+        display.style.color = '#007bff';
+    }
+}
+
+// Load existing settings
+function loadExistingSettings() {
+    fetch('/api/settings')
+        .then(response => response.json())
+        .then(data => {
+            // Load number of images
+            if (data.num_images) {
+                document.getElementById('numImages').value = data.num_images;
+            }
+            
+            // Load scheduler enabled status
+            if (data.hasOwnProperty('enabled')) {
+                document.getElementById('schedulerEnabled').checked = data.enabled;
+            }
+            
+            // Load posting times
+            if (data.posting_times) {
+                selectedTimes = [...data.posting_times];
+                
+                // Mark selected times in the grid
+                document.querySelectorAll('.time-option').forEach(option => {
+                    if (selectedTimes.includes(option.dataset.time)) {
+                        option.classList.add('selected');
+                    }
+                });
+                
+                updateSelectedTimesDisplay();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading settings:', error);
+            showNotification('Error loading settings', 'error');
+        });
+}
+
+// Form submission handler
 document.addEventListener('DOMContentLoaded', function() {
-    loadSettings();
+    generateTimeOptions();
+    loadExistingSettings();
     loadSchedulerStatus();
+    
+    // Handle form submission
+    document.getElementById('schedulerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveSettings();
+    });
 });
 
-function loadSettings() {
-    fetch('/api/scheduler/settings')
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const settings = data.settings;
-            document.getElementById('numImages').value = settings.num_images || 1;
-            document.getElementById('postInterval').value = settings.post_interval_hours || 4;
-            document.getElementById('schedulerEnabled').checked = settings.enabled || false;
-        } else {
-            showNotification(data.message, 'error');
-        }
-    })
-    .catch(error => {
-        showNotification('Error loading settings: ' + error.message, 'error');
-    });
-}
-
-function loadSchedulerStatus() {
-    fetch('/api/scheduler/status')
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const status = data.status;
-            const statusHtml = `
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="badge ${status.enabled ? 'bg-success' : 'bg-danger'} fs-6 mb-2">
-                                <i class="fas fa-${status.enabled ? 'check' : 'times'} me-1"></i>
-                                ${status.enabled ? 'Enabled' : 'Disabled'}
-                            </div>
-                            <div class="text-muted small">Status</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="h5 mb-1">${status.num_images}</div>
-                            <div class="text-muted small">Images per post</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="h5 mb-1">${status.post_interval_hours}h</div>
-                            <div class="text-muted small">Posting interval</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center">
-                            <div class="h6 mb-1">Not Running</div>
-                            <div class="text-muted small">Background service</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('schedulerStatus').innerHTML = statusHtml;
-        } else {
-            document.getElementById('schedulerStatus').innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error loading status: ${data.message}
-                </div>
-            `;
-        }
-    })
-    .catch(error => {
-        document.getElementById('schedulerStatus').innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Error loading status: ${error.message}
-            </div>
-        `;
-    });
-}
-
-// Handle form submission
-document.getElementById('schedulerForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    const settings = {
-        num_images: parseInt(formData.get('num_images')),
-        post_interval_hours: parseInt(formData.get('post_interval_hours')),
-        enabled: formData.get('enabled') === 'on'
+// Save Settings Function
+function saveSettings() {
+    const formData = {
+        enabled: document.getElementById('schedulerEnabled').checked,
+        num_images: parseInt(document.getElementById('numImages').value),
+        posting_times: selectedTimes
     };
-    
-    fetch('/api/scheduler/settings', {
+
+    showNotification('Saving settings...', 'info');
+
+    fetch('/api/settings', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(formData)
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             showNotification('Settings saved successfully!', 'success');
-            loadSchedulerStatus(); // Refresh status
+            // Refresh scheduler status
+            setTimeout(() => {
+                loadSchedulerStatus();
+            }, 500);
         } else {
-            showNotification(data.message, 'error');
+            showNotification('Failed to save settings: ' + data.message, 'error');
         }
     })
     .catch(error => {
-        showNotification('Error saving settings: ' + error.message, 'error');
+        showNotification('Error saving settings: ' + error, 'error');
     });
-});
+}
 
-function startScheduler() {
-    fetch('/api/scheduler/start', {
-        method: 'POST'
+// Reload Settings Function
+function reloadSettings() {
+    showNotification('Reloading settings...', 'info');
+    
+    fetch('/api/settings/reload', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showNotification(data.message, 'info');
+            showNotification('Settings reloaded successfully!', 'success');
+            // Refresh the settings display
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         } else {
-            showNotification(data.message, 'error');
+            showNotification('Failed to reload settings: ' + data.message, 'error');
         }
     })
     .catch(error => {
-        showNotification('Error starting scheduler: ' + error.message, 'error');
+        showNotification('Error reloading settings: ' + error, 'error');
     });
 }
 
-function showNotification(message, type = 'success') {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type === 'info' ? 'info' : 'success'} alert-dismissible fade show`;
-    alertDiv.innerHTML = `
-        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'info' ? 'info-circle' : 'check-circle'} me-2"></i>
+// Load scheduler status
+function loadSchedulerStatus() {
+    fetch('/api/scheduler/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                displaySchedulerStatus('Error loading status', 'danger');
+                return;
+            }
+            
+            displaySchedulerStatus(data);
+        })
+        .catch(error => {
+            console.error('Error loading scheduler status:', error);
+            displaySchedulerStatus('Failed to load scheduler status', 'danger');
+        });
+}
+
+// Display scheduler status
+function displaySchedulerStatus(data, errorType = null) {
+    const statusContainer = document.getElementById('schedulerStatus');
+    
+    if (errorType) {
+        statusContainer.innerHTML = `
+            <div class="alert alert-${errorType}">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ${data}
+            </div>
+        `;
+        return;
+    }
+    
+    const statusBadge = data.enabled 
+        ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Enabled</span>'
+        : '<span class="badge bg-secondary"><i class="fas fa-pause me-1"></i>Disabled</span>';
+    
+    const nextPostTime = data.next_post_time 
+        ? `<strong>Next post:</strong> ${new Date(data.next_post_time).toLocaleString()}`
+        : '<strong>Next post:</strong> <span class="text-muted">Not scheduled</span>';
+    
+    const lastPostTime = data.last_post_time 
+        ? `<strong>Last post:</strong> ${new Date(data.last_post_time).toLocaleString()}`
+        : '<strong>Last post:</strong> <span class="text-muted">None</span>';
+    
+    const postingTimes = data.posting_times && data.posting_times.length > 0
+        ? data.posting_times.join(', ')
+        : '<span class="text-muted">None configured</span>';
+    
+    let errorsSection = '';
+    if (data.recent_errors && data.recent_errors.length > 0) {
+        errorsSection = `
+            <div class="mt-3">
+                <h6 class="text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Recent Errors (${data.recent_errors.length})
+                </h6>
+                <div class="list-group list-group-flush">
+                    ${data.recent_errors.slice(-3).map(error => `
+                        <div class="list-group-item border-0 px-0 py-2">
+                            <small class="text-muted">${new Date(error.timestamp).toLocaleString()}</small><br>
+                            <span class="text-danger">${error.error}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    statusContainer.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <strong>Status:</strong> ${statusBadge}
+                </div>
+                <div class="mb-3">
+                    <strong>Images per post:</strong> ${data.num_images}
+                </div>
+                <div class="mb-3">
+                    <strong>Posting times:</strong> ${postingTimes}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    ${nextPostTime}
+                </div>
+                <div class="mb-3">
+                    ${lastPostTime}
+                </div>
+            </div>
+        </div>
+        ${errorsSection}
+        <div class="mt-3">
+            <button class="btn btn-outline-primary btn-sm" onclick="loadSchedulerStatus()">
+                <i class="fas fa-sync me-1"></i>
+                Refresh Status
+            </button>
+        </div>
+    `;
+}
+
+// Notification function
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    const container = document.querySelector('.container').firstElementChild;
-    container.insertBefore(alertDiv, container.firstChild);
+    document.body.appendChild(notification);
     
-    // Auto-remove after 5 seconds
+    // Auto remove after 3 seconds
     setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.remove();
+        if (notification.parentNode) {
+            notification.remove();
         }
-    }, 5000);
+    }, 3000);
 }
 </script>
 {% endblock %} 

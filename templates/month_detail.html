@@ -226,10 +226,16 @@
                         {% if images %}
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h6 class="mb-0">Images (sorted by filename)</h6>
-                                <small class="text-muted">
-                                    <i class="fas fa-arrows-alt me-1"></i>
-                                    Drag to reorder
-                                </small>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-danger btn-sm" onclick="deleteAllImages()">
+                                        <i class="fas fa-trash me-1"></i>
+                                        Delete All Images
+                                    </button>
+                                    <small class="text-muted">
+                                        <i class="fas fa-arrows-alt me-1"></i>
+                                        Drag to reorder
+                                    </small>
+                                </div>
                             </div>
                             <div class="row" id="imagesList">
                                 {% for image in images %}
@@ -318,10 +324,16 @@ post3,Another caption with specific ID" required></textarea>
                         {% if captions %}
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h6 class="mb-0">Existing Captions</h6>
-                                <small class="text-muted">
-                                    <i class="fas fa-arrows-alt me-1"></i>
-                                    Drag to reorder
-                                </small>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-danger btn-sm" onclick="deleteAllCaptions()">
+                                        <i class="fas fa-trash me-1"></i>
+                                        Delete All Captions
+                                    </button>
+                                    <small class="text-muted">
+                                        <i class="fas fa-arrows-alt me-1"></i>
+                                        Drag to reorder
+                                    </small>
+                                </div>
                             </div>
                             <div class="list-group" id="captionsList">
                                 {% for caption in captions %}
@@ -357,6 +369,9 @@ post3,Another caption with specific ID" required></textarea>
                                             </button>
                                             <button class="btn btn-sm btn-outline-secondary" onclick="showFullCaption('{{ caption.text|e }}')">
                                                 <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCaption('{{ caption.id }}')">
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -583,6 +598,79 @@ function confirmDelete() {
     })
     .finally(() => {
         currentImageToDelete = null;
+    });
+}
+
+function deleteAllImages() {
+    if (!confirm('Are you sure you want to delete ALL images for this month?\n\nThis action cannot be undone and will also remove these images from posted content and image order.')) {
+        return;
+    }
+    
+    fetch(`/delete_all_images/{{ month_num }}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error deleting all images: ' + error.message, 'error');
+    });
+}
+
+// Caption deletion functions
+function deleteCaption(captionId) {
+    if (!confirm('Are you sure you want to delete this caption?\n\nThis action cannot be undone and will also remove it from posted content.')) {
+        return;
+    }
+    
+    fetch(`/delete_caption/{{ month_num }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: captionId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error deleting caption: ' + error.message, 'error');
+    });
+}
+
+function deleteAllCaptions() {
+    if (!confirm('Are you sure you want to delete ALL captions for this month?\n\nThis action cannot be undone and will also remove them from posted content.')) {
+        return;
+    }
+    
+    fetch(`/delete_all_captions/{{ month_num }}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error deleting all captions: ' + error.message, 'error');
     });
 }
 

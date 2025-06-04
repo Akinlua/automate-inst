@@ -443,26 +443,74 @@ def start_scheduler():
         })
 
 @app.route('/api/scheduler/status')
-def scheduler_status():
-    """Get scheduler status"""
+def get_scheduler_status():
     try:
-        poster = InstagramPoster()
-        settings = poster.settings
+        # Check if scheduler is enabled
+        settings_file = os.path.join('scheduler_settings.json')
+        scheduler_enabled = False
+        posting_times = []
+        num_images = 1
         
-        return jsonify({
-            'success': True,
-            'status': {
-                'enabled': settings.get('enabled', True),
-                'num_images': settings.get('num_images', 1),
-                'post_interval_hours': settings.get('post_interval_hours', 4),
-                'next_post_estimated': 'Unknown (scheduler not running in web mode)'
-            }
-        })
+        if os.path.exists(settings_file):
+            with open(settings_file, 'r') as f:
+                settings = json.load(f)
+                scheduler_enabled = settings.get('enabled', False)
+                posting_times = settings.get('posting_times', [])
+                num_images = settings.get('num_images', 1)
+        
+        # Get recent errors
+        errors_file = os.path.join('scheduler_errors.json')
+        recent_errors = []
+        if os.path.exists(errors_file):
+            with open(errors_file, 'r') as f:
+                all_errors = json.load(f)
+                recent_errors = all_errors[-5:] if all_errors else []
+        
+        # Get last successful post time
+        last_post_time = None
+        posted_file = os.path.join('posted_content.json')
+        if os.path.exists(posted_file):
+            with open(posted_file, 'r') as f:
+                posted_data = json.load(f)
+                if posted_data:
+                    # Get the most recent post
+                    latest_post = max(posted_data.values(), key=lambda x: x.get('timestamp', ''))
+                    last_post_time = latest_post.get('timestamp')
+        
+        status = {
+            'enabled': scheduler_enabled,
+            'posting_times': posting_times,
+            'num_images': num_images,
+            'recent_errors': recent_errors,
+            'last_post_time': last_post_time,
+            'next_post_time': None  # We can calculate this based on current time and posting_times
+        }
+        
+        # Calculate next post time
+        if scheduler_enabled and posting_times:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            today_times = []
+            
+            for time_str in posting_times:
+                hour = int(time_str.split(':')[0])
+                post_time = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+                
+                if post_time > now:
+                    today_times.append(post_time)
+                else:
+                    # Add tomorrow's time
+                    tomorrow_time = post_time + timedelta(days=1)
+                    today_times.append(tomorrow_time)
+            
+            if today_times:
+                next_time = min(today_times)
+                status['next_post_time'] = next_time.strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify(status)
+    
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error getting scheduler status: {str(e)}'
-        })
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/settings')
 def settings():
@@ -516,6 +564,142 @@ def create_sample_content():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error creating sample content: {str(e)}'})
 
+@app.route('/delete_caption/<int:month_num>', methods=['POST'])
+def delete_caption(month_num):
+    """Delete a specific caption"""
+    try:
+        data = request.get_json()
+        caption_id = data.get('id')
+        
+        if not caption_id:
+            return jsonify({'success': False, 'message': 'Caption ID is required'})
+        
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        csv_file = None
+        for file in month_folder.iterdir():
+            if file.is_file() and file.suffix.lower() == '.csv':
+                csv_file = file
+                break
+        
+        if not csv_file:
+            return jsonify({'success': False, 'message': 'No CSV file found'})
+        
+        # Read all captions
+        captions = []
+        found = False
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if row and len(row) >= 2:
+                    if row[0] == caption_id:
+                        found = True
+                        continue  # Skip this caption (delete it)
+                    captions.append([row[0], row[1]])
+        
+        if not found:
+            return jsonify({'success': False, 'message': 'Caption not found'})
+        
+        # Write back to file
+        with open(csv_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            for caption_data in captions:
+                writer.writerow(caption_data)
+        
+        # Clean up from posted content
+        poster = InstagramPoster()
+        month_key = f"month_{month_num}"
+        posted_data = poster.posted_content.get(month_key, {})
+        used_posts = posted_data.get('used_posts', [])
+        
+        if caption_id in used_posts:
+            used_posts.remove(caption_id)
+            poster.posted_content[month_key]['used_posts'] = used_posts
+            poster.save_posted_content()
+        
+        return jsonify({'success': True, 'message': 'Caption deleted successfully'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error deleting caption: {str(e)}'})
+
+@app.route('/delete_all_captions/<int:month_num>', methods=['POST'])
+def delete_all_captions(month_num):
+    """Delete all captions for a specific month"""
+    try:
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        csv_file = None
+        for file in month_folder.iterdir():
+            if file.is_file() and file.suffix.lower() == '.csv':
+                csv_file = file
+                break
+        
+        if not csv_file:
+            return jsonify({'success': False, 'message': 'No CSV file found'})
+        
+        # Count captions before deletion
+        caption_count = 0
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if row and len(row) >= 2:
+                    caption_count += 1
+        
+        # Delete the CSV file
+        csv_file.unlink()
+        
+        # Clean up from posted content
+        poster = InstagramPoster()
+        month_key = f"month_{month_num}"
+        if month_key in poster.posted_content:
+            poster.posted_content[month_key]['used_posts'] = []
+            poster.save_posted_content()
+        
+        return jsonify({'success': True, 'message': f'Successfully deleted {caption_count} captions'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error deleting all captions: {str(e)}'})
+
+@app.route('/delete_all_images/<int:month_num>', methods=['POST'])
+def delete_all_images(month_num):
+    """Delete all images for a specific month"""
+    try:
+        month_folder = UPLOAD_FOLDER / str(month_num)
+        
+        if not month_folder.exists():
+            return jsonify({'success': False, 'message': 'Month folder not found'})
+        
+        # Get all image files
+        image_files = [f for f in month_folder.iterdir() 
+                      if f.is_file() and f.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp', '.gif'}]
+        
+        if not image_files:
+            return jsonify({'success': False, 'message': 'No images found'})
+        
+        # Delete all images
+        deleted_count = 0
+        for image_file in image_files:
+            try:
+                image_file.unlink()
+                deleted_count += 1
+            except Exception as e:
+                print(f"Error deleting {image_file}: {e}")
+        
+        # Clean up from posted content and image order
+        poster = InstagramPoster()
+        month_key = f"month_{month_num}"
+        
+        # Clear used images from posted content
+        if month_key in poster.posted_content:
+            poster.posted_content[month_key]['used_images'] = []
+            poster.save_posted_content()
+        
+        # Clear image order
+        poster.clear_month_image_order(month_num)
+        
+        return jsonify({'success': True, 'message': f'Successfully deleted {deleted_count} images'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error deleting all images: {str(e)}'})
+
 @app.route('/delete_image/<int:month_num>/<filename>', methods=['POST'])
 def delete_image(month_num, filename):
     """Delete a specific image from a month folder"""
@@ -525,6 +709,21 @@ def delete_image(month_num, filename):
         
         if image_path.exists() and image_path.is_file():
             image_path.unlink()
+            
+            # Clean up from posted content
+            poster = InstagramPoster()
+            month_key = f"month_{month_num}"
+            posted_data = poster.posted_content.get(month_key, {})
+            used_images = posted_data.get('used_images', [])
+            
+            if filename in used_images:
+                used_images.remove(filename)
+                poster.posted_content[month_key]['used_images'] = used_images
+                poster.save_posted_content()
+            
+            # Remove from image order
+            poster.remove_from_month_image_order(month_num, filename)
+            
             flash(f'Successfully deleted {filename}', 'success')
             return jsonify({'success': True, 'message': f'Successfully deleted {filename}'})
         else:
@@ -776,6 +975,49 @@ def clear_scheduler_errors():
         return jsonify({'success': True, 'message': 'Scheduler errors cleared successfully'})
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error clearing scheduler errors: {str(e)}'})
+
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    """Get current settings"""
+    try:
+        poster = InstagramPoster()
+        settings = poster.settings
+        return jsonify(settings)
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/settings', methods=['POST'])
+def save_settings():
+    """Save settings"""
+    try:
+        data = request.get_json()
+        poster = InstagramPoster()
+        
+        # Update settings
+        if 'enabled' in data:
+            poster.update_setting('enabled', data['enabled'])
+        if 'num_images' in data:
+            poster.update_setting('num_images', data['num_images'])
+        if 'posting_times' in data:
+            poster.update_setting('posting_times', data['posting_times'])
+        if 'chatgpt_enabled' in data:
+            poster.update_setting('chatgpt_enabled', data['chatgpt_enabled'])
+        if 'chatgpt_api_key' in data:
+            poster.update_setting('chatgpt_api_key', data['chatgpt_api_key'])
+        
+        return jsonify({'success': True, 'message': 'Settings saved successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/settings/reload', methods=['POST'])
+def reload_settings():
+    """Reload settings from file"""
+    try:
+        poster = InstagramPoster()
+        poster.settings = poster.load_settings()
+        return jsonify({'success': True, 'message': 'Settings reloaded successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 if __name__ == '__main__':
     # Create content directory
