@@ -134,6 +134,18 @@ jobs:
           echo "Creating necessary directories..."
           mkdir -p content logs uploads
           
+          # Clean up any problematic Docker volumes/containers
+          echo "Cleaning up problematic volumes..."
+          docker volume rm $(docker volume ls -q | grep -E "(posted_content|image_order|scheduler_settings|scheduler_errors|vnc_profile)") 2>/dev/null || true
+          
+          # Remove any directories that should be files
+          for file in posted_content.json scheduler_settings.json image_order.json scheduler_errors.json; do
+            if [ -d "$file" ]; then
+              echo "Removing directory $file (should be a file)"
+              rm -rf "$file"
+            fi
+          done
+          
           # Set proper permissions
           chmod 755 content logs uploads
           

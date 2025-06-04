@@ -150,6 +150,24 @@ set -e\n\
 \n\
 echo "Starting Instagram Auto Poster Docker Container..."\n\
 \n\
+# Ensure JSON files exist and are proper files (not directories)\n\
+echo "Initializing application files..."\n\
+for file in posted_content.json scheduler_settings.json image_order.json scheduler_errors.json; do\n\
+    if [ -d "$file" ]; then\n\
+        echo "Removing directory $file and creating as file"\n\
+        rm -rf "$file"\n\
+    fi\n\
+    if [ ! -f "$file" ]; then\n\
+        case "$file" in\n\
+            "posted_content.json") echo "[]" > "$file" ;;\n\
+            "scheduler_settings.json") echo "{\"enabled\": false, \"hour\": 12, \"minute\": 0}" > "$file" ;;\n\
+            "image_order.json") echo "[]" > "$file" ;;\n\
+            "scheduler_errors.json") echo "[]" > "$file" ;;\n\
+        esac\n\
+        echo "Created $file"\n\
+    fi\n\
+done\n\
+\n\
 # Set VNC password from environment variable\n\
 if [ ! -z "$VNC_PASSWORD" ]; then\n\
     echo "$VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd\n\

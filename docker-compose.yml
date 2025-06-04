@@ -6,16 +6,17 @@ services:
     container_name: instagram-auto-poster
     restart: unless-stopped
     ports:
-      - "5002:5002"  # Flask app
-      - "6080:6080"  # VNC web interface
-      - "5901:5901"  # VNC direct access
+      - "5002:5002"    # Flask app
+      - "6080:6080"    # VNC web interface
+      - "5901:5901"    # VNC direct access
+    
     environment:
-      # Instagram credentials (set these in .env file)
-      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME:-}
-      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD:-}
+      # Instagram credentials
+      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME:-your_instagram_username}
+      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD:-your_instagram_password}
       
-      # OpenAI API key (optional)
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # OpenAI API configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key}
       
       # VNC configuration
       - VNC_PASSWORD=${VNC_PASSWORD:-instagram123}
@@ -44,11 +45,13 @@ services:
       - ./content:/app/content
       - ./logs:/app/logs
       - chrome_profile:/app/chrome_profile_instagram
-      - posted_content:/app/posted_content.json
-      - image_order:/app/image_order.json
-      - scheduler_settings:/app/scheduler_settings.json
-      - scheduler_errors:/app/scheduler_errors.json
-      - vnc_profile:/app/vnc_profile
+      
+      # JSON files as bind mounts (will be created by container if they don't exist)
+      # Note: These will be created by the container startup script
+      # - ./data/posted_content.json:/app/posted_content.json
+      # - ./data/image_order.json:/app/image_order.json  
+      # - ./data/scheduler_settings.json:/app/scheduler_settings.json
+      # - ./data/scheduler_errors.json:/app/scheduler_errors.json
       
     networks:
       - instagram-network
@@ -64,16 +67,6 @@ services:
 # Named volumes for data persistence
 volumes:
   chrome_profile:
-    driver: local
-  posted_content:
-    driver: local
-  image_order:
-    driver: local
-  scheduler_settings:
-    driver: local
-  scheduler_errors:
-    driver: local
-  vnc_profile:
     driver: local
   
 # Custom network
