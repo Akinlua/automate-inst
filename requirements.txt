@@ -8,4 +8,4 @@ flask
 werkzeug
 pytz
 psutil
-undetected-chromedriver
+undetected_chromedriver
