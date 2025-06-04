@@ -8,11 +8,22 @@ import os
 import csv
 import json
 import shutil
-from datetime import datetime
+import logging
+import time as time_module
+from datetime import datetime, timedelta, date, time as datetime_time
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_from_directory
 from werkzeug.utils import secure_filename
 from instagram_poster import InstagramPoster
+from setup_integration import web_setup
+import pytz
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this in production
@@ -450,6 +461,7 @@ def get_scheduler_status():
         scheduler_enabled = False
         posting_times = []
         num_images = 1
+        timezone = 'UTC'
         
         if os.path.exists(settings_file):
             with open(settings_file, 'r') as f:
@@ -457,6 +469,7 @@ def get_scheduler_status():
                 scheduler_enabled = settings.get('enabled', False)
                 posting_times = settings.get('posting_times', [])
                 num_images = settings.get('num_images', 1)
+                timezone = settings.get('timezone', 'UTC')
         
         # Get recent errors
         errors_file = os.path.join('scheduler_errors.json')
@@ -481,31 +494,124 @@ def get_scheduler_status():
             'enabled': scheduler_enabled,
             'posting_times': posting_times,
             'num_images': num_images,
+            'timezone': timezone,
             'recent_errors': recent_errors,
             'last_post_time': last_post_time,
-            'next_post_time': None  # We can calculate this based on current time and posting_times
+            'next_post_time': None
         }
         
-        # Calculate next post time
+        # Calculate next post time with timezone support
         if scheduler_enabled and posting_times:
-            from datetime import datetime, timedelta
-            now = datetime.now()
-            today_times = []
-            
-            for time_str in posting_times:
-                hour = int(time_str.split(':')[0])
-                post_time = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+            try:
+                user_tz = pytz.timezone(timezone)
+                # Automatically detect server timezone using system's local time
+                try:
+                    # Use Python's built-in timezone detection (Python 3.6+)
+                    import datetime as dt
+                    system_tz = dt.datetime.now().astimezone().tzinfo
+                    # Convert to pytz timezone for compatibility
+                    server_tz_str = str(system_tz)
+                    print(f"System timezone info: {server_tz_str}")
+                    
+                    # Try to create pytz timezone from the detected timezone
+                    if hasattr(system_tz, 'zone'):
+                        # It's already a pytz timezone
+                        server_tz = system_tz
+                        print(f"Using existing pytz timezone: {server_tz}")
+                    else:
+                        # Try to match with pytz timezones
+                        try:
+                            # First try: Extract timezone name from tzfile format
+                            import re
+                            tz_match = re.search(r'tzfile\(\'([^\']+)\'\)', server_tz_str)
+                            if tz_match:
+                                server_tz = pytz.timezone(tz_match.group(1))
+                                print(f"Detected timezone from tzfile: {server_tz}")
+                            else:
+                                # Second try: Handle simple timezone abbreviations like WAT, EST, etc.
+                                if server_tz_str in ['WAT']:
+                                    # WAT is UTC+1 (West Africa Time)
+                                    server_tz = pytz.timezone('Africa/Lagos')  # WAT timezone
+                                    print(f"Mapped {server_tz_str} to {server_tz}")
+                                elif server_tz_str in ['PST']:
+                                    server_tz = pytz.timezone('US/Pacific')
+                                    print(f"Mapped {server_tz_str} to {server_tz}")
+                                elif server_tz_str in ['EST']:
+                                    server_tz = pytz.timezone('US/Eastern')
+                                    print(f"Mapped {server_tz_str} to {server_tz}")
+                                elif server_tz_str in ['UTC']:
+                                    server_tz = pytz.timezone('UTC')
+                                    print(f"Mapped {server_tz_str} to {server_tz}")
+                                else:
+                                    # Third try: use UTC offset to find appropriate timezone
+                                    offset = dt.datetime.now().astimezone().utcoffset()
+                                    print(f"System UTC offset: {offset}")
+                                    hours_offset = offset.total_seconds() / 3600
+                                    
+                                    # Map common offsets to timezones
+                                    offset_to_tz = {
+                                        0: 'UTC',
+                                        1: 'Europe/Berlin',  # CET
+                                        -5: 'US/Eastern',    # EST
+                                        -8: 'US/Pacific',    # PST
+                                        8: 'Asia/Shanghai',  # CST
+                                        9: 'Asia/Tokyo',     # JST
+                                    }
+                                    
+                                    if hours_offset in offset_to_tz:
+                                        server_tz = pytz.timezone(offset_to_tz[hours_offset])
+                                        print(f"Mapped offset {hours_offset} to {server_tz}")
+                                    else:
+                                        # Fallback: use UTC
+                                        server_tz = pytz.timezone('UTC')
+                                        logger.info(f"Using UTC fallback for unknown offset: {offset}")
+                        except Exception as e:
+                            server_tz = pytz.timezone('UTC')
+                            logger.info(f"Using UTC fallback due to timezone conversion error: {e}")
+                except Exception as e:
+                    # Final fallback to UTC
+                    server_tz = pytz.timezone('UTC')
+                    logger.warning(f"Could not detect server timezone, using UTC as fallback: {e}")
                 
-                if post_time > now:
-                    today_times.append(post_time)
-                else:
-                    # Add tomorrow's time
-                    tomorrow_time = post_time + timedelta(days=1)
-                    today_times.append(tomorrow_time)
-            
-            if today_times:
-                next_time = min(today_times)
-                status['next_post_time'] = next_time.strftime('%Y-%m-%d %H:%M:%S')
+                print(f"Final server timezone: {server_tz}")
+                
+                # Get current time in both timezones
+                now_utc = datetime.now(server_tz)
+                now_user = now_utc.astimezone(user_tz)
+                today = now_user.date()
+                
+                # Convert all posting times to server time and find the next one
+                upcoming_times = []
+                
+                for time_str in posting_times:
+                    hour, minute = map(int, time_str.split(':'))
+                    
+                    # Check today's posting time
+                    target_datetime = datetime.combine(today, datetime_time(hour=hour, minute=minute))
+                    user_time = user_tz.localize(target_datetime)
+                    server_time = user_time.astimezone(server_tz)
+                    
+                    # If this time hasn't passed today, add it
+                    if server_time > now_utc:
+                        upcoming_times.append(server_time)
+                    else:
+                        # Add tomorrow's time
+                        tomorrow = today + timedelta(days=1)
+                        target_datetime = datetime.combine(tomorrow, datetime_time(hour=hour, minute=minute))
+                        user_time = user_tz.localize(target_datetime)
+                        server_time = user_time.astimezone(server_tz)
+                        upcoming_times.append(server_time)
+                
+                if upcoming_times:
+                    next_time = min(upcoming_times)
+                    # Convert back to user timezone for display
+                    next_time_user = next_time.astimezone(user_tz)
+                    status['next_post_time'] = next_time_user.strftime('%Y-%m-%d %H:%M:%S %Z')
+                    
+            except Exception as e:
+                # Fallback to original logic if timezone handling fails
+                logger.error(f"Timezone conversion error: {e}")
+                status['next_post_time'] = None
         
         return jsonify(status)
     
@@ -1000,6 +1106,8 @@ def save_settings():
             poster.update_setting('num_images', data['num_images'])
         if 'posting_times' in data:
             poster.update_setting('posting_times', data['posting_times'])
+        if 'timezone' in data:
+            poster.update_setting('timezone', data['timezone'])
         if 'chatgpt_enabled' in data:
             poster.update_setting('chatgpt_enabled', data['chatgpt_enabled'])
         if 'chatgpt_api_key' in data:
@@ -1014,14 +1122,87 @@ def reload_settings():
     """Reload settings from file"""
     try:
         poster = InstagramPoster()
-        poster.settings = poster.load_settings()
+        poster.load_settings()
         return jsonify({'success': True, 'message': 'Settings reloaded successfully'})
     except Exception as e:
+        logger.error(f"Error reloading settings: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+# Instagram Login Setup API Endpoints
+@app.route('/api/login/start', methods=['POST'])
+def start_instagram_login():
+    """Start Instagram login setup process"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'Username and password are required'}), 400
+        
+        result = web_setup.start_setup(username, password)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error starting login setup: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/login/status')
+def get_login_status():
+    """Get current login setup status"""
+    try:
+        status = web_setup.get_status()
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Error getting login status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/login/verify', methods=['POST'])
+def submit_verification_code():
+    """Submit email verification code"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '').strip()
+        
+        if not code:
+            return jsonify({'success': False, 'error': 'Verification code is required'}), 400
+        
+        result = web_setup.submit_verification_code(code)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error submitting verification code: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/login/logout', methods=['POST'])
+def logout_instagram():
+    """Logout from Instagram (delete Chrome profile)"""
+    try:
+        result = web_setup.logout()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error during logout: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/login/check')
+def check_login_status():
+    """Check if user is currently logged in"""
+    try:
+        is_logged_in = web_setup.is_logged_in()
+        profile_path = os.getenv('CHROME_PROFILE_PATH')
+        print(f"Profile path: {profile_path}")
+        
+        return jsonify({
+            'logged_in': is_logged_in,
+            'chrome_profile_path': profile_path if is_logged_in else None
+        })
+    except Exception as e:
+        logger.error(f"Error checking login status: {e}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
-    # Create content directory
+    # Create upload folder if it doesn't exist
     UPLOAD_FOLDER.mkdir(exist_ok=True)
     
     # Run the app
-    app.run(debug=True, host='0.0.0.0', port=5001) 
+    app.run(debug=True, host='0.0.0.0', port=5002) 

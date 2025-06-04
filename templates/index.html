@@ -5,6 +5,29 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
+        <!-- Login Status Alert -->
+        <div id="loginStatusAlert" class="alert alert-warning border-start border-warning border-4 mb-4" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-2">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Instagram Login Required
+                    </h6>
+                    <p class="mb-2">You need to log in to Instagram to use the automated posting features.</p>
+                    <p class="mb-0">
+                        <strong>Important:</strong> Before logging in, please check your Instagram account on your phone or other device. 
+                        Instagram may show a security prompt asking you to allow login from this IP address.
+                    </p>
+                </div>
+                <div class="flex-shrink-0 ms-3">
+                    <a href="{{ url_for('settings') }}" class="btn btn-warning">
+                        <i class="fas fa-sign-in-alt me-1"></i>
+                        Login to Instagram
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <!-- Header Section -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
@@ -367,5 +390,26 @@ setInterval(() => {
         console.log('Stats updated');
     });
 }, 30000);
+
+// Check login status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkLoginStatus();
+});
+
+function checkLoginStatus() {
+    fetch('/api/login/check')
+        .then(response => response.json())
+        .then(data => {
+            const loginAlert = document.getElementById('loginStatusAlert');
+            if (data.logged_in) {
+                loginAlert.style.display = 'none';
+            } else {
+                loginAlert.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error checking login status:', error);
+        });
+}
 </script>
 {% endblock %} 

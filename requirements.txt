@@ -6,3 +6,4 @@ openai>=0.28.0
 requests>=2.31.0
 flask>=2.3.0
 werkzeug>=2.3.0
+pytz>=2023.3

@@ -10,6 +10,119 @@
             Settings
         </h1>
         
+        <!-- Instagram Login Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fab fa-instagram me-2"></i>
+                    Instagram Login
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Login Status Display -->
+                <div id="loginStatusSection">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Checking login status...</p>
+                    </div>
+                </div>
+                
+                <!-- Login Form (hidden by default) -->
+                <div id="loginFormSection" style="display: none;">
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Important:</strong> Before logging in, please check your Instagram account on your phone or other device. 
+                        Instagram may show a security prompt asking you to allow login from this IP address.
+                    </div>
+                    
+                    <form id="instagramLoginForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="instagramUsername" class="form-label">
+                                        <i class="fas fa-user me-2"></i>
+                                        Instagram Username or Email
+                                    </label>
+                                    <input type="text" class="form-control" id="instagramUsername" 
+                                           placeholder="Enter your username or email" required>
+                                    <small class="form-text text-muted">
+                                        Your credentials are used only for login and are not saved
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="instagramPassword" class="form-label">
+                                        <i class="fas fa-lock me-2"></i>
+                                        Instagram Password
+                                    </label>
+                                    <input type="password" class="form-control" id="instagramPassword" 
+                                           placeholder="Enter your password" required>
+                                    <small class="form-text text-muted">
+                                        Credentials are processed securely and not stored
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" id="loginSubmitBtn">
+                                <i class="fas fa-sign-in-alt me-1"></i>
+                                Login to Instagram
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Verification Code Section (hidden by default) -->
+                <div id="verificationSection" style="display: none;">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-envelope me-2"></i>
+                        <strong>Email Verification Required</strong><br>
+                        Instagram has sent a verification code to your email. Please check your email and enter the code below.
+                    </div>
+                    
+                    <form id="verificationForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="verificationCode" class="form-label">
+                                        <i class="fas fa-key me-2"></i>
+                                        Verification Code
+                                    </label>
+                                    <input type="text" class="form-control" id="verificationCode" 
+                                           placeholder="Enter 6-digit code" maxlength="6" required>
+                                    <small class="form-text text-muted">
+                                        Enter the 6-digit code sent to your email
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-warning" id="verifySubmitBtn">
+                                <i class="fas fa-check me-1"></i>
+                                Submit Code
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Setup Progress (hidden by default) -->
+                <div id="setupProgressSection" style="display: none;">
+                    <div class="progress mb-3" style="height: 20px;">
+                        <div id="setupProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             style="width: 0%"></div>
+                    </div>
+                    <div id="setupProgressText" class="text-center text-muted">
+                        Initializing...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Scheduler Settings -->
         <div class="card mb-4">
             <div class="card-header">
@@ -23,38 +136,95 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="setting-group">
-                                <label class="setting-label">
-                                    <i class="fas fa-images"></i>
+                                <label class="setting-label" for="imagesPerPost">
+                                    <i class="fas fa-images me-2"></i>
                                     Number of Images per Post
                                 </label>
-                                <select id="numImages" class="form-select">
+                                <select class="form-select" id="imagesPerPost">
                                     <option value="1">1 image</option>
                                     <option value="2">2 images</option>
                                     <option value="3">3 images</option>
                                     <option value="4">4 images</option>
                                     <option value="5">5 images</option>
-                                    <option value="6">6 images</option>
-                                    <option value="7">7 images</option>
-                                    <option value="8">8 images</option>
-                                    <option value="9">9 images</option>
-                                    <option value="10">10 images</option>
                                 </select>
-                                <small class="text-muted">Select how many images to include in each automated post</small>
+                                <small class="form-text">Select how many images to include in each automated post</small>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="setting-group">
-                                <label class="setting-label">
-                                    <i class="fas fa-toggle-on"></i>
-                                    Enable Automatic Posting
+                                <label class="setting-label" for="timezone">
+                                    <i class="fas fa-globe me-2"></i>
+                                    Timezone
                                 </label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="schedulerEnabled">
-                                    <label class="form-check-label" for="schedulerEnabled">
-                                        When enabled, the scheduler will automatically post content based on the selected times
-                                    </label>
-                                </div>
+                                <select class="form-select" id="timezone">
+                                    <option value="UTC">UTC - Coordinated Universal Time</option>
+                                    <optgroup label="Americas">
+                                        <option value="America/New_York">Eastern Time (ET) - New York</option>
+                                        <option value="America/Chicago">Central Time (CT) - Chicago</option>
+                                        <option value="America/Denver">Mountain Time (MT) - Denver</option>
+                                        <option value="America/Los_Angeles">Pacific Time (PT) - Los Angeles</option>
+                                        <option value="America/Phoenix">Mountain Standard Time - Phoenix</option>
+                                        <option value="America/Anchorage">Alaska Time - Anchorage</option>
+                                        <option value="Pacific/Honolulu">Hawaii Time - Honolulu</option>
+                                        <option value="America/Toronto">Eastern Time - Toronto</option>
+                                        <option value="America/Vancouver">Pacific Time - Vancouver</option>
+                                        <option value="America/Mexico_City">Central Time - Mexico City</option>
+                                        <option value="America/Sao_Paulo">Brasília Time - São Paulo</option>
+                                        <option value="America/Argentina/Buenos_Aires">Argentina Time - Buenos Aires</option>
+                                    </optgroup>
+                                    <optgroup label="Europe">
+                                        <option value="Europe/London">Greenwich Mean Time - London</option>
+                                        <option value="Europe/Paris">Central European Time - Paris</option>
+                                        <option value="Europe/Berlin">Central European Time - Berlin</option>
+                                        <option value="Europe/Rome">Central European Time - Rome</option>
+                                        <option value="Europe/Madrid">Central European Time - Madrid</option>
+                                        <option value="Europe/Amsterdam">Central European Time - Amsterdam</option>
+                                        <option value="Europe/Stockholm">Central European Time - Stockholm</option>
+                                        <option value="Europe/Moscow">Moscow Time</option>
+                                        <option value="Europe/Istanbul">Turkey Time - Istanbul</option>
+                                        <option value="Europe/Athens">Eastern European Time - Athens</option>
+                                    </optgroup>
+                                    <optgroup label="Asia">
+                                        <option value="Asia/Tokyo">Japan Standard Time - Tokyo</option>
+                                        <option value="Asia/Shanghai">China Standard Time - Shanghai</option>
+                                        <option value="Asia/Hong_Kong">Hong Kong Time</option>
+                                        <option value="Asia/Singapore">Singapore Time</option>
+                                        <option value="Asia/Seoul">Korea Standard Time - Seoul</option>
+                                        <option value="Asia/Kolkata">India Standard Time - Mumbai/Delhi</option>
+                                        <option value="Asia/Dubai">Gulf Standard Time - Dubai</option>
+                                        <option value="Asia/Bangkok">Indochina Time - Bangkok</option>
+                                        <option value="Asia/Manila">Philippines Time - Manila</option>
+                                        <option value="Asia/Jakarta">Western Indonesian Time - Jakarta</option>
+                                    </optgroup>
+                                    <optgroup label="Australia & Oceania">
+                                        <option value="Australia/Sydney">Australian Eastern Time - Sydney</option>
+                                        <option value="Australia/Melbourne">Australian Eastern Time - Melbourne</option>
+                                        <option value="Australia/Perth">Australian Western Time - Perth</option>
+                                        <option value="Australia/Brisbane">Australian Eastern Time - Brisbane</option>
+                                        <option value="Pacific/Auckland">New Zealand Time - Auckland</option>
+                                    </optgroup>
+                                    <optgroup label="Africa">
+                                        <option value="Africa/Cairo">Eastern European Time - Cairo</option>
+                                        <option value="Africa/Johannesburg">South Africa Time - Johannesburg</option>
+                                        <option value="Africa/Lagos">West Africa Time - Lagos</option>
+                                        <option value="Africa/Nairobi">East Africa Time - Nairobi</option>
+                                    </optgroup>
+                                </select>
+                                <small class="form-text">Select your timezone for accurate posting times</small>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i class="fas fa-toggle-on"></i>
+                            Enable Automatic Posting
+                        </label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="schedulerEnabled">
+                            <label class="form-check-label" for="schedulerEnabled">
+                                When enabled, the scheduler will automatically post content based on the selected times
+                            </label>
                         </div>
                     </div>
                     
@@ -88,6 +258,57 @@
                 </form>
             </div>
         </div>
+        
+        <!-- ChatGPT Configuration -->
+        <!-- <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-robot me-2"></i>
+                    ChatGPT Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="setting-group">
+                    <label class="setting-label">
+                        <i class="fas fa-toggle-on"></i>
+                        Enable ChatGPT Enhancement
+                    </label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="chatgptEnabled">
+                        <label class="form-check-label" for="chatgptEnabled">
+                            When enabled, ChatGPT will enhance your captions before posting
+                        </label>
+                    </div>
+                    <small class="form-text text-muted">
+                        ChatGPT will improve your captions by adding emojis, hashtags, and making them more engaging
+                    </small>
+                </div>
+                
+                <div class="setting-group">
+                    <label class="setting-label" for="chatgptApiKey">
+                        <i class="fas fa-key me-2"></i>
+                        OpenAI API Key
+                    </label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="chatgptApiKey" 
+                               placeholder="sk-..." autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="toggleApiKey">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <small class="form-text text-muted">
+                        Your API key is stored securely and only used for caption enhancement. 
+                        Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>
+                    </small>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>How it works:</strong> When posting content, your original caption will be sent to ChatGPT 
+                    for enhancement. The enhanced version will be used for the Instagram post while keeping your original caption unchanged.
+                </div>
+            </div>
+        </div> -->
         
         <!-- Scheduler Status -->
         <div class="card mb-4">
@@ -207,12 +428,27 @@ function loadExistingSettings() {
         .then(data => {
             // Load number of images
             if (data.num_images) {
-                document.getElementById('numImages').value = data.num_images;
+                document.getElementById('imagesPerPost').value = data.num_images;
             }
             
             // Load scheduler enabled status
             if (data.hasOwnProperty('enabled')) {
                 document.getElementById('schedulerEnabled').checked = data.enabled;
+            }
+            
+            // Load ChatGPT settings
+            if (data.hasOwnProperty('chatgpt_enabled')) {
+                const chatgptCheckbox = document.getElementById('chatgptEnabled');
+                if (chatgptCheckbox) {
+                    chatgptCheckbox.checked = data.chatgpt_enabled;
+                }
+            }
+            
+            if (data.chatgpt_api_key) {
+                const chatgptApiKeyInput = document.getElementById('chatgptApiKey');
+                if (chatgptApiKeyInput) {
+                    chatgptApiKeyInput.value = data.chatgpt_api_key;
+                }
             }
             
             // Load posting times
@@ -227,6 +463,22 @@ function loadExistingSettings() {
                 });
                 
                 updateSelectedTimesDisplay();
+            }
+            
+            // Load timezone
+            if (data.timezone) {
+                document.getElementById('timezone').value = data.timezone;
+            } else {
+                // Try to detect user's timezone and set as default
+                const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const timezoneSelect = document.getElementById('timezone');
+                // Check if user's timezone is available in the dropdown
+                for (let option of timezoneSelect.options) {
+                    if (option.value === userTimezone) {
+                        option.selected = true;
+                        break;
+                    }
+                }
             }
         })
         .catch(error => {
@@ -246,15 +498,34 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         saveSettings();
     });
+    
+    // Check login status on page load
+    checkInstagramLoginStatus();
+    
+    // Setup login form handlers
+    setupLoginFormHandlers();
 });
 
 // Save Settings Function
 function saveSettings() {
     const formData = {
         enabled: document.getElementById('schedulerEnabled').checked,
-        num_images: parseInt(document.getElementById('numImages').value),
+        num_images: parseInt(document.getElementById('imagesPerPost').value),
+        timezone: document.getElementById('timezone').value,
         posting_times: selectedTimes
     };
+    
+    // Add ChatGPT settings if elements exist
+    const chatgptEnabledElement = document.getElementById('chatgptEnabled');
+    const chatgptApiKeyElement = document.getElementById('chatgptApiKey');
+    
+    if (chatgptEnabledElement) {
+        formData.chatgpt_enabled = chatgptEnabledElement.checked;
+    }
+    
+    if (chatgptApiKeyElement && chatgptApiKeyElement.value.trim()) {
+        formData.chatgpt_api_key = chatgptApiKeyElement.value.trim();
+    }
 
     showNotification('Saving settings...', 'info');
 
@@ -315,7 +586,7 @@ function loadSchedulerStatus() {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                displaySchedulerStatus('Error loading status', 'danger');
+                displaySchedulerStatus('Error loading status', 'error');
                 return;
             }
             
@@ -323,89 +594,84 @@ function loadSchedulerStatus() {
         })
         .catch(error => {
             console.error('Error loading scheduler status:', error);
-            displaySchedulerStatus('Failed to load scheduler status', 'danger');
+            displaySchedulerStatus('Failed to load scheduler status', 'error');
         });
 }
 
 // Display scheduler status
 function displaySchedulerStatus(data, errorType = null) {
-    const statusContainer = document.getElementById('schedulerStatus');
+    const container = document.getElementById('schedulerStatus');
     
-    if (errorType) {
-        statusContainer.innerHTML = `
-            <div class="alert alert-${errorType}">
+    if (errorType === 'error') {
+        container.innerHTML = `
+            <div class="alert alert-danger">
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                ${data}
+                Failed to load scheduler status
             </div>
         `;
         return;
     }
     
-    const statusBadge = data.enabled 
+    const enabledBadge = data.enabled 
         ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Enabled</span>'
-        : '<span class="badge bg-secondary"><i class="fas fa-pause me-1"></i>Disabled</span>';
+        : '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>Disabled</span>';
     
     const nextPostTime = data.next_post_time 
-        ? `<strong>Next post:</strong> ${new Date(data.next_post_time).toLocaleString()}`
-        : '<strong>Next post:</strong> <span class="text-muted">Not scheduled</span>';
+        ? `<div class="mb-2"><strong>Next Post:</strong> ${data.next_post_time}</div>`
+        : '<div class="mb-2"><strong>Next Post:</strong> <span class="text-muted">Not scheduled</span></div>';
     
     const lastPostTime = data.last_post_time 
-        ? `<strong>Last post:</strong> ${new Date(data.last_post_time).toLocaleString()}`
-        : '<strong>Last post:</strong> <span class="text-muted">None</span>';
+        ? `<div class="mb-2"><strong>Last Post:</strong> ${data.last_post_time}</div>`
+        : '<div class="mb-2"><strong>Last Post:</strong> <span class="text-muted">Never</span></div>';
+    
+    const timezone = data.timezone || 'UTC';
+    const timezoneInfo = `<div class="mb-2"><strong>Timezone:</strong> ${timezone}</div>`;
     
     const postingTimes = data.posting_times && data.posting_times.length > 0
-        ? data.posting_times.join(', ')
-        : '<span class="text-muted">None configured</span>';
+        ? `<div class="mb-2"><strong>Posting Times:</strong> ${data.posting_times.join(', ')} (${timezone})</div>`
+        : '<div class="mb-2"><strong>Posting Times:</strong> <span class="text-muted">None configured</span></div>';
     
-    let errorsSection = '';
+    const schedulingInfo = `<div class="mb-2"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Times are automatically converted to server timezone for efficient scheduling</small></div>`;
+    
+    const imagesPerPost = `<div class="mb-2"><strong>Images per Post:</strong> ${data.num_images}</div>`;
+    
+    let errorsHtml = '';
     if (data.recent_errors && data.recent_errors.length > 0) {
-        errorsSection = `
+        errorsHtml = `
             <div class="mt-3">
-                <h6 class="text-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Recent Errors (${data.recent_errors.length})
-                </h6>
-                <div class="list-group list-group-flush">
-                    ${data.recent_errors.slice(-3).map(error => `
-                        <div class="list-group-item border-0 px-0 py-2">
-                            <small class="text-muted">${new Date(error.timestamp).toLocaleString()}</small><br>
-                            <span class="text-danger">${error.error}</span>
-                        </div>
-                    `).join('')}
+                <h6 class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Recent Errors</h6>
+                <div class="card">
+                    <div class="card-body">
+                        ${data.recent_errors.slice(-3).map(error => `
+                            <div class="mb-2">
+                                <small class="text-muted">${error.timestamp}</small><br>
+                                <span class="text-danger">${error.message}</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
         `;
     }
     
-    statusContainer.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <strong>Status:</strong> ${statusBadge}
-                </div>
-                <div class="mb-3">
-                    <strong>Images per post:</strong> ${data.num_images}
-                </div>
-                <div class="mb-3">
-                    <strong>Posting times:</strong> ${postingTimes}
-                </div>
+    container.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h6 class="mb-1">Scheduler Status</h6>
+                ${enabledBadge}
             </div>
-            <div class="col-md-6">
-                <div class="mb-3">
-                    ${nextPostTime}
-                </div>
-                <div class="mb-3">
-                    ${lastPostTime}
-                </div>
-            </div>
-        </div>
-        ${errorsSection}
-        <div class="mt-3">
-            <button class="btn btn-outline-primary btn-sm" onclick="loadSchedulerStatus()">
-                <i class="fas fa-sync me-1"></i>
-                Refresh Status
+            <button class="btn btn-sm btn-outline-primary" onclick="loadSchedulerStatus()">
+                <i class="fas fa-sync-alt me-1"></i>
+                Refresh
             </button>
         </div>
+        ${nextPostTime}
+        ${lastPostTime}
+        ${timezoneInfo}
+        ${postingTimes}
+        ${schedulingInfo}
+        ${imagesPerPost}
+        ${errorsHtml}
     `;
 }
 
@@ -429,5 +695,462 @@ function showNotification(message, type) {
         }
     }, 3000);
 }
+
+// Instagram Login Functions
+let loginCheckInterval = null;
+
+function setupLoginFormHandlers() {
+    // Instagram login form submission
+    document.getElementById('instagramLoginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        startInstagramLogin();
+    });
+    
+    // Verification form submission
+    document.getElementById('verificationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitVerificationCode();
+    });
+    
+    // API key visibility toggle
+    const toggleBtn = document.getElementById('toggleApiKey');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleApiKeyVisibility);
+    }
+}
+
+function toggleApiKeyVisibility() {
+    const apiKeyInput = document.getElementById('chatgptApiKey');
+    const toggleBtn = document.getElementById('toggleApiKey');
+    
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+    } else {
+        apiKeyInput.type = 'password';
+        toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+    }
+}
+
+function checkInstagramLoginStatus() {
+    fetch('/api/login/check')
+        .then(response => response.json())
+        .then(data => {
+            displayLoginStatus(data);
+        })
+        .catch(error => {
+            console.error('Error checking login status:', error);
+            displayLoginError('Failed to check login status');
+        });
+}
+
+function displayLoginStatus(data) {
+    const statusSection = document.getElementById('loginStatusSection');
+    
+    if (data.logged_in) {
+        statusSection.innerHTML = `
+            <div class="alert alert-success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="alert-heading mb-2">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Successfully Logged In
+                        </h6>
+                        <p class="mb-0">You are currently logged in to Instagram and ready to post content.</p>
+                        ${data.chrome_profile_path ? `<small class="text-muted">Profile: ${data.chrome_profile_path}</small>` : ''}
+                    </div>
+                    <button type="button" class="btn btn-outline-danger" onclick="logoutInstagram()">
+                        <i class="fas fa-sign-out-alt me-1"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        `;
+    } else {
+        statusSection.innerHTML = `
+            <div class="alert alert-warning">
+                <h6 class="alert-heading mb-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Not Logged In
+                </h6>
+                <p class="mb-2">You need to log in to Instagram to enable automated posting.</p>
+                <button type="button" class="btn btn-primary" onclick="showLoginForm()">
+                    <i class="fas fa-sign-in-alt me-1"></i>
+                    Login to Instagram
+                </button>
+            </div>
+        `;
+    }
+}
+
+function displayLoginError(message) {
+    const statusSection = document.getElementById('loginStatusSection');
+    statusSection.innerHTML = `
+        <div class="alert alert-danger">
+            <h6 class="alert-heading mb-2">
+                <i class="fas fa-times-circle me-2"></i>
+                Error
+            </h6>
+            <p class="mb-2">${message}</p>
+            <button type="button" class="btn btn-outline-primary" onclick="checkInstagramLoginStatus()">
+                <i class="fas fa-sync me-1"></i>
+                Retry
+            </button>
+        </div>
+    `;
+}
+
+function showLoginForm() {
+    document.getElementById('loginStatusSection').style.display = 'none';
+    document.getElementById('loginFormSection').style.display = 'block';
+    document.getElementById('verificationSection').style.display = 'none';
+    document.getElementById('setupProgressSection').style.display = 'none';
+}
+
+function hideAllSections() {
+    document.getElementById('loginStatusSection').style.display = 'none';
+    document.getElementById('loginFormSection').style.display = 'none';
+    document.getElementById('verificationSection').style.display = 'none';
+    document.getElementById('setupProgressSection').style.display = 'none';
+}
+
+function showProgressSection() {
+    hideAllSections();
+    document.getElementById('setupProgressSection').style.display = 'block';
+}
+
+function startInstagramLogin() {
+    const username = document.getElementById('instagramUsername').value.trim();
+    const password = document.getElementById('instagramPassword').value.trim();
+    
+    if (!username || !password) {
+        showNotification('Please enter both username and password', 'error');
+        return;
+    }
+    
+    // Show progress section
+    showProgressSection();
+    updateProgress(10, 'Starting login process...');
+    
+    // Disable submit button
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging in...';
+    
+    // Start login process
+    fetch('/api/login/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: username,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Start monitoring login progress
+            startLoginProgressMonitoring();
+        } else {
+            displayLoginError(data.error || 'Failed to start login process');
+            resetLoginForm();
+        }
+    })
+    .catch(error => {
+        console.error('Login start error:', error);
+        displayLoginError('Network error during login');
+        resetLoginForm();
+    });
+}
+
+function startLoginProgressMonitoring() {
+    updateProgress(20, 'Monitoring login progress...');
+    
+    loginCheckInterval = setInterval(() => {
+        fetch('/api/login/status')
+            .then(response => response.json())
+            .then(data => {
+                handleLoginProgress(data);
+            })
+            .catch(error => {
+                console.error('Progress monitoring error:', error);
+                stopLoginProgressMonitoring();
+                displayLoginError('Error monitoring login progress');
+            });
+    }, 2000); // Check every 2 seconds
+}
+
+function stopLoginProgressMonitoring() {
+    if (loginCheckInterval) {
+        clearInterval(loginCheckInterval);
+        loginCheckInterval = null;
+    }
+}
+
+function handleLoginProgress(status) {
+    if (!status.running && status.success) {
+        // Login completed successfully
+        stopLoginProgressMonitoring();
+        updateProgress(100, 'Login completed successfully!');
+        
+        setTimeout(() => {
+            checkInstagramLoginStatus();
+            resetLoginForm();
+            showNotification('Successfully logged in to Instagram!', 'success');
+        }, 1500);
+        
+    } else if (!status.running && status.error) {
+        // Login failed
+        stopLoginProgressMonitoring();
+        displayLoginError(status.error);
+        resetLoginForm();
+        
+    } else if (status.requires_verification) {
+        // Email verification required
+        stopLoginProgressMonitoring();
+        showVerificationSection();
+        
+    } else if (status.running) {
+        // Update progress based on step
+        updateProgressByStep(status.step, status.message);
+    }
+}
+
+function updateProgressByStep(step, message) {
+    let progressPercent = 20;
+    
+    switch (step) {
+        case 'starting':
+            progressPercent = 10;
+            break;
+        case 'chrome_setup':
+            progressPercent = 20;
+            break;
+        case 'login_check':
+            progressPercent = 30;
+            break;
+        case 'navigation':
+            progressPercent = 40;
+            break;
+        case 'login':
+            progressPercent = 60;
+            break;
+        case 'verification_check':
+            progressPercent = 70;
+            break;
+        case 'save_info':
+            progressPercent = 80;
+            break;
+        case 'verification':
+            progressPercent = 90;
+            break;
+        case 'completed':
+            progressPercent = 100;
+            break;
+    }
+    
+    updateProgress(progressPercent, message);
+}
+
+function updateProgress(percent, message) {
+    const progressBar = document.getElementById('setupProgressBar');
+    const progressText = document.getElementById('setupProgressText');
+    
+    progressBar.style.width = percent + '%';
+    progressBar.setAttribute('aria-valuenow', percent);
+    progressText.textContent = message;
+}
+
+function showVerificationSection() {
+    hideAllSections();
+    document.getElementById('verificationSection').style.display = 'block';
+    
+    // Focus on verification input
+    setTimeout(() => {
+        document.getElementById('verificationCode').focus();
+    }, 100);
+}
+
+function submitVerificationCode() {
+    const code = document.getElementById('verificationCode').value.trim();
+    
+    if (!code) {
+        showNotification('Please enter the verification code', 'error');
+        return;
+    }
+    
+    if (code.length !== 6 || !/^\d+$/.test(code)) {
+        showNotification('Verification code must be 6 digits', 'error');
+        return;
+    }
+    
+    // Disable submit button
+    const submitBtn = document.getElementById('verifySubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Verifying...';
+    
+    fetch('/api/login/verify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            code: code
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Verification successful!', 'success');
+            
+            // Show progress and complete setup
+            showProgressSection();
+            updateProgress(100, 'Verification completed successfully!');
+            
+            setTimeout(() => {
+                checkInstagramLoginStatus();
+                resetLoginForm();
+            }, 1500);
+        } else {
+            showNotification(data.error || 'Verification failed', 'error');
+            resetVerificationForm();
+        }
+    })
+    .catch(error => {
+        console.error('Verification error:', error);
+        showNotification('Network error during verification', 'error');
+        resetVerificationForm();
+    });
+}
+
+function logoutInstagram() {
+    if (!confirm('Are you sure you want to logout? This will delete your saved login session.')) {
+        return;
+    }
+    
+    fetch('/api/login/logout', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Successfully logged out from Instagram', 'success');
+            checkInstagramLoginStatus();
+        } else {
+            showNotification(data.error || 'Failed to logout', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Logout error:', error);
+        showNotification('Network error during logout', 'error');
+    });
+}
+
+function resetLoginForm() {
+    // Reset login form
+    document.getElementById('instagramUsername').value = '';
+    document.getElementById('instagramPassword').value = '';
+    
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login to Instagram';
+    
+    resetVerificationForm();
+}
+
+function resetVerificationForm() {
+    // Reset verification form
+    document.getElementById('verificationCode').value = '';
+    
+    const verifyBtn = document.getElementById('verifySubmitBtn');
+    verifyBtn.disabled = false;
+    verifyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Submit Code';
+}
+
+// Add CSS styles for the login interface
+const loginStyles = `
+<style>
+.time-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.time-option {
+    padding: 8px 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    background: white;
+    transition: all 0.2s ease;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.time-option:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.time-option.selected {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.selected-times-display {
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+}
+
+.setting-group {
+    margin-bottom: 2rem;
+}
+
+.setting-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.setting-description {
+    color: #6c757d;
+    font-size: 0.9em;
+    margin-bottom: 1rem;
+}
+
+.time-selector-container {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    background-color: #fafafa;
+}
+
+#setupProgressSection .progress {
+    background-color: #e9ecef;
+}
+
+#setupProgressSection .progress-bar {
+    background-color: #007bff;
+}
+
+.alert-heading {
+    font-weight: 600;
+}
+</style>
+`;
+
+// Inject styles
+document.head.insertAdjacentHTML('beforeend', loginStyles);
 </script>
 {% endblock %} 

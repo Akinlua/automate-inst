@@ -19,6 +19,7 @@ import base64
 import ssl
 import urllib3
 import csv
+import pytz  # Add timezone support
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -120,6 +121,7 @@ class InstagramPoster:
             'num_images': 1,
             'post_interval_hours': 4,  # Keep for backward compatibility
             'posting_times': ['09:00', '13:00', '17:00', '21:00'],  # Default posting times
+            'timezone': 'UTC',  # Default timezone
             'use_sequential_images': True,  # New setting for image selection order
             'chatgpt_enabled': False,
             'chatgpt_api_key': '',
@@ -1055,50 +1057,149 @@ class InstagramPoster:
             return []
     
     def run_scheduler(self):
-        """Run the posting scheduler with time-based scheduling"""
+        """Run the posting scheduler with timezone-aware scheduling"""
         # Clear any existing jobs
         schedule.clear()
         
         # Track current settings to detect changes
         last_times = None
+        last_timezone = None
         
-        logger.info("Scheduler started with time-based scheduling")
-        logger.info("Settings will be checked and reloaded every minute")
+        logger.info("Scheduler started with timezone-aware scheduling")
         
         while True:
             try:
                 # Reload settings to pick up any changes
                 self.settings = self.load_settings()
                 current_times = self.get_setting('posting_times', ['09:00', '13:00', '17:00', '21:00'])
+                current_timezone = self.get_setting('timezone', 'UTC')
                 
                 # Check if scheduler is disabled
                 if not self.get_setting('enabled', True):
-                    logger.info("Scheduler is disabled - waiting for re-enable...")
+                    logger.info("Scheduler is disabled")
                     schedule.clear()
                     last_times = None
+                    last_timezone = None
                     time.sleep(60)
                     continue
                 
-                # If times have changed, reschedule
-                if last_times != current_times:
+                # If settings changed, reschedule
+                if last_times != current_times or last_timezone != current_timezone:
                     schedule.clear()
                     
-                    # Set up the new schedule based on selected times
-                    for posting_time in current_times:
-                        schedule.every().day.at(posting_time).do(self.post_monthly_content)
-                        logger.info(f"Scheduled posting at {posting_time}")
-                    
-                    last_times = current_times[:]  # Copy the list
-                    logger.info(f"Current settings: {self.get_setting('num_images', 1)} images per post")
-                    logger.info(f"Posting times: {', '.join(current_times)}")
+                    try:
+                        # Convert user timezone times to server time and schedule
+                        user_tz = pytz.timezone(current_timezone)
+                        # Automatically detect server timezone using system's local time
+                        try:
+                            # Use Python's built-in timezone detection (Python 3.6+)
+                            import datetime as dt
+                            system_tz = dt.datetime.now().astimezone().tzinfo
+                            # Convert to pytz timezone for compatibility
+                            server_tz_str = str(system_tz)
+                            
+                            # Try to create pytz timezone from the detected timezone
+                            if hasattr(system_tz, 'zone'):
+                                # It's already a pytz timezone
+                                server_tz = system_tz
+                            else:
+                                # Try to match with pytz timezones
+                                try:
+                                    # First try: Extract timezone name from tzfile format
+                                    import re
+                                    tz_match = re.search(r'tzfile\(\'([^\']+)\'\)', server_tz_str)
+                                    if tz_match:
+                                        server_tz = pytz.timezone(tz_match.group(1))
+                                        logger.info(f"Detected timezone from tzfile: {server_tz}")
+                                    else:
+                                        # Second try: Handle simple timezone abbreviations like WAT, EST, etc.
+                                        if server_tz_str in ['WAT']:
+                                            # WAT is UTC+1 (West Africa Time)
+                                            server_tz = pytz.timezone('Africa/Lagos')  # WAT timezone
+                                            logger.info(f"Mapped {server_tz_str} to {server_tz}")
+                                        elif server_tz_str in ['PST']:
+                                            server_tz = pytz.timezone('US/Pacific')
+                                            logger.info(f"Mapped {server_tz_str} to {server_tz}")
+                                        elif server_tz_str in ['EST']:
+                                            server_tz = pytz.timezone('US/Eastern')
+                                            logger.info(f"Mapped {server_tz_str} to {server_tz}")
+                                        elif server_tz_str in ['UTC']:
+                                            server_tz = pytz.timezone('UTC')
+                                            logger.info(f"Mapped {server_tz_str} to {server_tz}")
+                                        else:
+                                            # Third try: use UTC offset to find appropriate timezone
+                                            offset = dt.datetime.now().astimezone().utcoffset()
+                                            hours_offset = offset.total_seconds() / 3600
+                                            
+                                            # Map common offsets to timezones
+                                            offset_to_tz = {
+                                                0: 'UTC',
+                                                1: 'Europe/Berlin',  # CET
+                                                -5: 'US/Eastern',    # EST
+                                                -8: 'US/Pacific',    # PST
+                                                8: 'Asia/Shanghai',  # CST
+                                                9: 'Asia/Tokyo',     # JST
+                                            }
+                                            
+                                            if hours_offset in offset_to_tz:
+                                                server_tz = pytz.timezone(offset_to_tz[hours_offset])
+                                                logger.info(f"Mapped offset {hours_offset} to {server_tz}")
+                                            else:
+                                                # Fallback: use UTC
+                                                server_tz = pytz.timezone('UTC')
+                                                logger.info(f"Using UTC fallback for unknown offset: {offset}")
+                                except:
+                                    server_tz = pytz.timezone('UTC')
+                                    logger.info("Using UTC fallback due to timezone conversion error")
+                        except:
+                            # Final fallback to UTC
+                            server_tz = pytz.timezone('UTC')
+                            logger.warning(f"Could not detect server timezone, using UTC as fallback")
+                        
+                        logger.info(f"Detected server timezone: {server_tz}")
+                        
+                        # Get today's date for conversion
+                        today = datetime.now().date()
+                        
+                        for time_str in current_times:
+                            try:
+                                # Parse the time string
+                                hour, minute = map(int, time_str.split(':'))
+                                
+                                # Create a datetime object for today at the target time in user's timezone
+                                target_datetime = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+                                
+                                # Localize to user's timezone
+                                user_time = user_tz.localize(target_datetime)
+                                
+                                # Convert to server timezone
+                                server_time = user_time.astimezone(server_tz)
+                                
+                                # Format for schedule
+                                server_time_str = server_time.strftime("%H:%M")
+                                
+                                # Schedule the job
+                                schedule.every().day.at(server_time_str).do(self.post_monthly_content)
+                                
+                                logger.info(f"Scheduled posting: {time_str} {current_timezone} -> {server_time_str} UTC")
+                                
+                            except Exception as e:
+                                logger.error(f"Error scheduling time {time_str}: {e}")
+                        
+                        last_times = current_times[:]
+                        last_timezone = current_timezone
+                        logger.info(f"Successfully scheduled {len(current_times)} posting times")
+                        
+                    except Exception as e:
+                        logger.error(f"Timezone error: {e}. Using UTC as fallback.")
+                        self.update_setting('timezone', 'UTC')
                 
                 # Run pending jobs
                 schedule.run_pending()
                 
             except Exception as e:
-                logger.error(f"Error in scheduler loop: {e}")
+                logger.error(f"Error in scheduler: {e}")
             
-            # Wait 60 seconds before next check
             time.sleep(60)
 
     def load_image_order(self):
