@@ -1,0 +1,4 @@
+2025/06/06-00:10:44.085 24108c Creating DB /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/IndexedDB/https_www.instagram.com_0.indexeddb.leveldb since it was missing.
+2025/06/06-00:10:44.145 24108c Reusing MANIFEST /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/IndexedDB/https_www.instagram.com_0.indexeddb.leveldb/MANIFEST-000001
+2025/06/06-00:10:44.145 24108c Recovering log #4
+2025/06/06-00:10:44.149 24108c Reusing old log /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/IndexedDB/https_www.instagram.com_0.indexeddb.leveldb/000004.log 

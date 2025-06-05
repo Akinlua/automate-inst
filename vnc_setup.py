@@ -742,11 +742,12 @@ done
             env = os.environ.copy()
             env['DISPLAY'] = self.vnc_display
             
-            # Clean and recreate profile directory completely
-            # self._clean_chrome_profile_completely(profile_path)
-            
-            # Create anti-detection profile
-            # self._create_anti_detection_chrome_profile(profile_path)
+            # Only create profile if it doesn't exist (preserve existing logged-in profiles)
+            if not os.path.exists(profile_path):
+                logger.info(f"Creating new Chrome profile at: {profile_path}")
+                self._create_anti_detection_chrome_profile(profile_path)
+            else:
+                logger.info(f"Using existing Chrome profile at: {profile_path}")
             
             # Wait for desktop to be ready
             time.sleep(5)
@@ -1035,7 +1036,7 @@ done
             return False
 
 # Global VNC manager instance
-vnc_manager = VNCServerManager()
+vnc_manager = VNCServerManager(PROXY_SERVER)
 
 def start_vnc_chrome_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
     """Start VNC session with Chrome for manual login"""

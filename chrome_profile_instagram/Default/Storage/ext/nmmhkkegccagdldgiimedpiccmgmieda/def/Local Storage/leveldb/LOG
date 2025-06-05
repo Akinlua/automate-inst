@@ -1,0 +1,4 @@
+2025/06/06-00:05:42.479 24008f Creating DB /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/Local Storage/leveldb since it was missing.
+2025/06/06-00:05:42.487 24008f Reusing MANIFEST /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/Local Storage/leveldb/MANIFEST-000001
+2025/06/06-00:05:42.489 24008f Recovering log #3
+2025/06/06-00:05:42.489 24008f Reusing old log /Users/user/Documents/instagram_api/chrome_profile_instagram/Default/Storage/ext/nmmhkkegccagdldgiimedpiccmgmieda/def/Local Storage/leveldb/000003.log 
