@@ -746,7 +746,7 @@ done
             # self._clean_chrome_profile_completely(profile_path)
             
             # Create anti-detection profile
-            self._create_anti_detection_chrome_profile(profile_path)
+            # self._create_anti_detection_chrome_profile(profile_path)
             
             # Wait for desktop to be ready
             time.sleep(5)
