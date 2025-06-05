@@ -638,7 +638,14 @@ done
                 },
                 "extensions": {
                     "ui": {
-                        "developer_mode": False
+                        "developer_mode": True,  # Enable developer mode for extension management
+                        "chrome_apps_enabled": True
+                    },
+                    "settings": {
+                        "extensions_enabled": True
+                    },
+                    "alerts": {
+                        "initialized": True
                     }
                 },
                 "security": {
@@ -684,6 +691,15 @@ done
                 "homepage_is_newtabpage": False,
                 "session": {
                     "restore_on_startup": 1
+                },
+                # Extension-related preferences
+                "privacy": {
+                    "extension_can_load_protected_media": True
+                },
+                "webkit": {
+                    "webprefs": {
+                        "plugins_enabled": True
+                    }
                 }
             }
             
@@ -759,7 +775,6 @@ done
                 # Anti-detection flags
                 '--disable-blink-features=AutomationControlled',
                 '--disable-features=VizDisplayCompositor',
-                '--disable-extensions',
                 '--disable-plugins',
                 '--disable-default-apps',
                 '--disable-component-extensions-with-background-pages',
@@ -780,6 +795,11 @@ done
                 '--disable-features=MediaRouter',
                 '--disable-print-preview',
                 '--disable-features=VizServiceDisplayCompositor',
+                
+                # Extension-friendly flags
+                '--enable-extensions',
+                '--load-extension-enable',
+                '--extensions-on-chrome-urls',
                 
                 # User agent and window management
                 '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
