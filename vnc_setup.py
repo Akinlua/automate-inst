@@ -743,7 +743,7 @@ done
             env['DISPLAY'] = self.vnc_display
             
             # Clean and recreate profile directory completely
-            self._clean_chrome_profile_completely(profile_path)
+            # self._clean_chrome_profile_completely(profile_path)
             
             # Create anti-detection profile
             self._create_anti_detection_chrome_profile(profile_path)

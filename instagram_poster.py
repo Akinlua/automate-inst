@@ -521,16 +521,33 @@ class InstagramPoster:
             # time.sleep(1)
 
             # Use arguments to pass the caption safely (no string interpolation)
-            script = """
-                const editableDiv = document.querySelector('div.xw2csxc.x1odjw0f.x1n2onr6.x1hnll1o.xpqswwc.xl565be.x5dp1im.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1w2wdq1.xen30ot.x1swvt13.x1pi30zi.xh8yej3.x5n08af.notranslate[contenteditable="true"]');
+            # script = """
+            #     const editableDiv = document.querySelector('div.xw2csxc.x1odjw0f.x1n2onr6.x1hnll1o.xpqswwc.xl565be.x5dp1im.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1w2wdq1.xen30ot.x1swvt13.x1pi30zi.xh8yej3.x5n08af.notranslate[contenteditable="true"]');
                 
-                if (editableDiv) {
+            #     if (editableDiv) {
+            #         editableDiv.focus();
+            #         document.execCommand('insertText', false, arguments[0]);
+            #         return 'Caption inserted successfully (alternative method)';
+            #     } else {
+            #         return 'Contenteditable div not found (alternative method)';
+            #     }
+            # """
+
+            script = f"""
+                const editableDiv = document.querySelector('div[contenteditable="true"][aria-label^="Write a caption"]');
+                console.log('Found editable div:', editableDiv);
+
+                if (editableDiv) {{
+                    // Focus the div
                     editableDiv.focus();
+
+                    // Insert the caption text
                     document.execCommand('insertText', false, arguments[0]);
-                    return 'Caption inserted successfully (alternative method)';
-                } else {
-                    return 'Contenteditable div not found (alternative method)';
-                }
+                    
+                    return 'Caption inserted successfully';
+                }} else {{
+                    return 'Contenteditable div not found';
+                }}
             """
             
             result = self.driver.execute_script(script, caption)
@@ -550,22 +567,40 @@ class InstagramPoster:
                 escaped_caption = caption.replace('\\', '\\\\').replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r')
                 print(escaped_caption)
                 # Use JavaScript to focus the contenteditable div and insert text
-                script = f"""
-                const editableDiv = document.querySelector('div.xw2csxc.x1odjw0f.x1n2onr6.x1hnll1o.xpqswwc.xl565be.x5dp1im.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1w2wdq1.xen30ot.x1swvt13.x1pi30zi.xh8yej3.x5n08af.notranslate[contenteditable="true"]');
-                console.log('Found editable div:', editableDiv);
+                # script = f"""
+                # const editableDiv = document.querySelector('div.xw2csxc.x1odjw0f.x1n2onr6.x1hnll1o.xpqswwc.xl565be.x5dp1im.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1w2wdq1.xen30ot.x1swvt13.x1pi30zi.xh8yej3.x5n08af.notranslate[contenteditable="true"]');
+                # console.log('Found editable div:', editableDiv);
                 
-                if (editableDiv) {{
-                    // Focus the div
-                    editableDiv.focus();
+                # if (editableDiv) {{
+                #     // Focus the div
+                #     editableDiv.focus();
                     
-                    // Insert the caption text
-                    document.execCommand('insertText', false, '{escaped_caption}');
+                #     // Insert the caption text
+                #     document.execCommand('insertText', false, '{escaped_caption}');
                     
-                    return 'Caption inserted successfully';
-                }} else {{
-                    return 'Contenteditable div not found';
-                }}
+                #     return 'Caption inserted successfully';
+                # }} else {{
+                #     return 'Contenteditable div not found';
+                # }}
+                # """
+
+                script = f"""
+                    const editableDiv = document.querySelector('div[contenteditable="true"][aria-label^="Write a caption"]');
+                    console.log('Found editable div:', editableDiv);
+
+                    if (editableDiv) {{
+                        // Focus the div
+                        editableDiv.focus();
+
+                        // Insert the caption text
+                        document.execCommand('insertText', false, '{escaped_caption}');
+                        
+                        return 'Caption inserted successfully';
+                    }} else {{
+                        return 'Contenteditable div not found';
+                    }}
                 """
+
                 
                 # # Execute the script
                 result = self.driver.execute_script(script)
@@ -724,7 +759,7 @@ class InstagramPoster:
             return image_path
     
     def post_to_instagram(self, image_paths, caption: str) -> bool:
-        """Post images with caption to Instagram using Selenium"""
+        """Post images and caption to Instagram using Selenium with improved workflow"""
         try:
             # Handle both single image and multiple images
             if isinstance(image_paths, (str, Path)):
@@ -745,9 +780,24 @@ class InstagramPoster:
             if not self.click_new_post_icon():
                 return False
             
-            # Step 2: Click the Post button
-            if not self.click_post_button():
-                return False
+            # Check if file dialog opened directly (sometimes happens)
+            file_dialog_opened = False
+            try:
+                # Wait briefly to see if file input is available
+                time.sleep(2)
+                file_input = self.driver.find_element(By.CSS_SELECTOR, 'input[type="file"]')
+                if file_input and file_input.is_displayed():
+                    logger.info("File dialog opened directly after clicking post icon - skipping Post button")
+                    file_dialog_opened = True
+            except:
+                # File dialog not opened yet, need to proceed with Post button
+                pass
+            
+            # Step 2: Click the Post button (only if file dialog didn't open directly)
+            if not file_dialog_opened:
+                if not self.click_post_button():
+                    logger.warning("Post button click failed, but continuing with the workflow...")
+                    # Don't return False here - continue with the process
             
             # Step 3: Click Select from computer
             # if not self.click_select_from_computer():
