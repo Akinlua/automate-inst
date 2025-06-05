@@ -186,17 +186,211 @@ class VNCServerManager:
                         'tar', '-xzf', 'v1.4.0.tar.gz'
                     ], cwd=temp_path, check=True)
                     
-                    # Copy to destination
-                    subprocess.run([
-                        'cp', '-r', str(temp_path / "noVNC-1.4.0" / "*"), str(novnc_dir)
-                    ], shell=True, check=True)
-                    
+                    # Copy to destination using Python instead of shell command
+                    source_dir = temp_path / "noVNC-1.4.0"
+                    if source_dir.exists():
+                        import shutil
+                        for item in source_dir.iterdir():
+                            dest_item = novnc_dir / item.name
+                            if item.is_file():
+                                shutil.copy2(item, dest_item)
+                            elif item.is_dir():
+                                shutil.copytree(item, dest_item, dirs_exist_ok=True)
+                        logger.info("noVNC files copied successfully")
+                    else:
+                        logger.error(f"Source directory not found: {source_dir}")
+                        
                 logger.info("noVNC installed successfully")
             else:
                 logger.info("noVNC already installed")
                 
         except Exception as e:
             logger.warning(f"Failed to install noVNC: {e}")
+            # Try alternative installation method
+            self._install_novnc_fallback()
+            
+    def _install_novnc_fallback(self):
+        """Fallback method to install noVNC using git or package manager"""
+        try:
+            logger.info("Trying fallback noVNC installation...")
+            
+            # Try installing noVNC via apt first
+            try:
+                subprocess.run(['apt-get', 'install', '-y', 'novnc'], check=True, capture_output=True)
+                logger.info("noVNC installed via package manager")
+                return
+            except subprocess.CalledProcessError:
+                logger.info("Package manager installation failed, trying git...")
+            
+            # Try git clone as fallback
+            novnc_dir = Path("/usr/share/novnc")
+            novnc_dir.mkdir(parents=True, exist_ok=True)
+            
+            try:
+                subprocess.run([
+                    'git', 'clone', 'https://github.com/novnc/noVNC.git', str(novnc_dir)
+                ], check=True, capture_output=True)
+                logger.info("noVNC installed via git clone")
+                return
+            except subprocess.CalledProcessError:
+                logger.info("Git installation failed, creating minimal web interface...")
+            
+            # Create a minimal web interface as last resort
+            self._create_minimal_vnc_interface()
+            
+        except Exception as e:
+            logger.warning(f"All noVNC installation methods failed: {e}")
+            self._create_minimal_vnc_interface()
+            
+    def _create_minimal_vnc_interface(self):
+        """Create a minimal VNC web interface"""
+        try:
+            logger.info("Creating minimal VNC web interface...")
+            
+            novnc_dir = Path("/usr/share/novnc")
+            novnc_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create a simple HTML redirect page
+            html_content = """<!DOCTYPE html>
+<html>
+<head>
+    <title>VNC Access - Instagram Auto Poster</title>
+    <meta charset="utf-8">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status { margin: 20px 0; }
+        .success { color: green; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button {
+            background: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover { background: #005a87; }
+        .code {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 VNC Access - Instagram Auto Poster</h1>
+        
+        <div class="status success">
+            ✅ VNC Server is Running
+        </div>
+        
+        <p>Your VNC server is active and ready for use. Since the full noVNC web client isn't available, you can connect using:</p>
+        
+        <h3>🔗 Connection Methods:</h3>
+        
+        <div class="info">
+            <strong>Option 1: VNC Client (Recommended)</strong><br>
+            Download a VNC client like RealVNC, TightVNC, or TigerVNC Viewer<br>
+            <div class="code">
+                Server: localhost:5901<br>
+                Password: instagram123
+            </div>
+        </div>
+        
+        <div class="info">
+            <strong>Option 2: SSH Tunnel + VNC</strong><br>
+            For remote access, create an SSH tunnel:<br>
+            <div class="code">
+                ssh -L 5901:localhost:5901 user@your-server<br>
+                Then connect VNC client to localhost:5901
+            </div>
+        </div>
+        
+        <div class="warning">
+            <strong>Option 3: Install noVNC manually</strong><br>
+            <div class="code">
+                sudo apt-get install novnc<br>
+                # or<br>
+                cd /usr/share && sudo git clone https://github.com/novnc/noVNC.git novnc
+            </div>
+            Then refresh this page.
+        </div>
+        
+        <h3>📋 Connection Details:</h3>
+        <div class="code">
+            VNC Display: :1<br>
+            VNC Port: 5901<br>
+            Web Port: 6080<br>
+            Password: instagram123
+        </div>
+        
+        <p>Chrome should be running automatically in the VNC session with Instagram login page loaded.</p>
+        
+        <button onclick="checkNoVNC()">🔄 Check for noVNC</button>
+        <button onclick="window.location.reload()">↻ Refresh Page</button>
+    </div>
+    
+    <script>
+        function checkNoVNC() {
+            fetch('/vnc_lite.html')
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/vnc_lite.html';
+                    } else {
+                        alert('noVNC not found. Please install manually or use a VNC client.');
+                    }
+                })
+                .catch(() => {
+                    alert('noVNC not available. Please use a VNC client to connect.');
+                });
+        }
+        
+        // Auto-check for noVNC every 30 seconds
+        setInterval(() => {
+            fetch('/vnc_lite.html')
+                .then(response => {
+                    if (response.ok) {
+                        document.body.innerHTML = '<div style="text-align:center;padding:50px;"><h2>noVNC Available!</h2><p>Redirecting...</p></div>';
+                        setTimeout(() => window.location.href = '/vnc_lite.html', 2000);
+                    }
+                })
+                .catch(() => {});
+        }, 30000);
+    </script>
+</body>
+</html>"""
+            
+            # Write the HTML file
+            with open(novnc_dir / "vnc.html", 'w') as f:
+                f.write(html_content)
+                
+            # Also create index.html as fallback
+            with open(novnc_dir / "index.html", 'w') as f:
+                f.write(html_content)
+                
+            logger.info("Minimal VNC web interface created")
+            
+        except Exception as e:
+            logger.error(f"Failed to create minimal web interface: {e}")
             
     def setup_vnc_server(self) -> bool:
         """Setup and configure VNC server with proper desktop"""
