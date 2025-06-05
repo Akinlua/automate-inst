@@ -17,7 +17,13 @@ from werkzeug.utils import secure_filename
 from instagram_poster import InstagramPoster
 from setup_integration import web_setup
 import pytz
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 logger = logging.getLogger(__name__)
+
 
 # VNC Support
 try:
@@ -1197,6 +1203,9 @@ def check_login_status():
     """Check if user is currently logged in"""
     try:
         is_logged_in = web_setup.is_logged_in()
+        # Load environment variables
+        load_dotenv()
+        
         profile_path = os.getenv('CHROME_PROFILE_PATH')
         print(f"Profile path: {profile_path}")
         

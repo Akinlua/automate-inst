@@ -258,6 +258,12 @@ class InstagramPoster:
         try:
             self.driver.get("https://www.instagram.com/")
             time.sleep(5)  # Wait for page to load
+            # Take screenshot of Instagram page
+            try:
+                self.driver.save_screenshot('insta.png')
+                logger.info("Captured screenshot of Instagram page")
+            except Exception as e:
+                logger.error(f"Failed to capture screenshot: {e}")
             
             # Check if we're logged in by looking for navigation elements
             try:
