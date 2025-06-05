@@ -1386,4 +1386,4 @@ if __name__ == '__main__':
     UPLOAD_FOLDER.mkdir(exist_ok=True)
     
     # Run the app
-    app.run(debug=True, host='0.0.0.0', port=5002) 
+    app.run(debug=True, host='0.0.0.0', port=5003) 

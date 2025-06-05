@@ -397,6 +397,12 @@ class ChromeProfileSetup:
             # Navigate to Instagram home page first
             self.driver.get("https://www.instagram.com/")
             time.sleep(3)
+
+            try:
+                self.driver.save_screenshot("login.png")
+                logger.info("Saved screenshot of login page to login.png")
+            except Exception as e:
+                logger.error(f"Failed to save login page screenshot: {e}")
             
             # Check for login indicators
             logged_in_indicators = [
