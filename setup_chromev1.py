@@ -104,8 +104,9 @@ class ChromeProfileSetup:
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
-            # options.add_argument(f"--proxy-server={PROXY_SERVER}")
+            options.add_argument(f"--proxy-server={PROXY_SERVER}")
 
+            options.add_argument("--headless")
 
             self.driver = uc.Chrome(options=options)
 
@@ -122,6 +123,15 @@ class ChromeProfileSetup:
         try:
             self.driver.get("https://www.instagram.com/")
             logger.info("Navigated to Instagram - please log in manually")
+            time.sleep(10)
+
+            # Take screenshot of Instagram page
+            try:
+                self.driver.save_screenshot('inst2.png')
+                logger.info("Captured screenshot of Instagram page")
+            except Exception as e:
+                logger.error(f"Failed to capture screenshot: {e}")
+
             return True
         except Exception as e:
             logger.error(f"Failed to navigate to Instagram: {e}")

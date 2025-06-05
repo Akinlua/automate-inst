@@ -239,6 +239,8 @@ class InstagramPoster:
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument(f"--proxy-server={PROXY_SERVER}")
+            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
+
 
             options.add_argument("--headless")
 
@@ -257,7 +259,7 @@ class InstagramPoster:
         """Navigate to Instagram (should already be logged in)"""
         try:
             self.driver.get("https://www.instagram.com/")
-            time.sleep(5)  # Wait for page to load
+            time.sleep(10)  # Wait for page to load
             # Take screenshot of Instagram page
             try:
                 self.driver.save_screenshot('insta.png')
