@@ -1,0 +1,82 @@
+{
+  "profile": {
+    "default_content_setting_values": {
+      "notifications": 1,
+      "geolocation": 1,
+      "media_stream": 1
+    },
+    "content_settings": {
+      "exceptions": {
+        "notifications": {
+          "https://www.instagram.com,*": {
+            "setting": 1
+          }
+        }
+      }
+    }
+  },
+  "extensions": {
+    "ui": {
+      "developer_mode": true,
+      "chrome_apps_enabled": true
+    },
+    "settings": {
+      "extensions_enabled": true
+    },
+    "alerts": {
+      "initialized": true
+    }
+  },
+  "security": {
+    "ask_for_password": true
+  },
+  "credentials_enable_service": true,
+  "password_manager_enabled": true,
+  "autofill": {
+    "enabled": true,
+    "profile_enabled": true
+  },
+  "dns_prefetching": {
+    "enabled": true
+  },
+  "safebrowsing": {
+    "enabled": true,
+    "enhanced": false
+  },
+  "search": {
+    "suggest_enabled": true
+  },
+  "alternate_error_pages": {
+    "enabled": true
+  },
+  "hardware": {
+    "audio_capture_enabled": true,
+    "video_capture_enabled": true
+  },
+  "browser": {
+    "show_home_button": true,
+    "check_default_browser": false
+  },
+  "bookmark_bar": {
+    "show_on_all_tabs": false
+  },
+  "sync": {
+    "suppress_start": false
+  },
+  "first_run_tabs": [
+    "https://www.google.com/"
+  ],
+  "homepage": "https://www.google.com/",
+  "homepage_is_newtabpage": false,
+  "session": {
+    "restore_on_startup": 1
+  },
+  "privacy": {
+    "extension_can_load_protected_media": true
+  },
+  "webkit": {
+    "webprefs": {
+      "plugins_enabled": true
+    }
+  }
+}
