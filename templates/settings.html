@@ -698,6 +698,7 @@ function showNotification(message, type) {
 
 // Instagram Login Functions
 let loginCheckInterval = null;
+let verificationCountdownInterval = null;
 
 function setupLoginFormHandlers() {
     // Instagram login form submission
@@ -962,7 +963,7 @@ function startLoginProgressMonitoring() {
     updateProgress(20, 'Monitoring login progress...');
     
     let monitoringStartTime = Date.now();
-    const maxMonitoringTime = 300000; // 5 minutes timeout
+    const maxMonitoringTime = 900000; // 5 minutes timeout
     
     loginCheckInterval = setInterval(() => {
         // Check for timeout
@@ -1018,9 +1019,29 @@ function handleLoginProgress(status) {
         }, 500); // Small delay to ensure proper display
         
     } else if (status.requires_verification) {
-        // Email verification required
+        // Email verification required - show countdown
         stopLoginProgressMonitoring();
+        
+        // Update verification section with countdown
+        const verificationSection = document.getElementById('verificationSection');
+        if (status.countdown_seconds > 0) {
+            const alertElement = verificationSection.querySelector('.alert-warning');
+            if (alertElement) {
+                alertElement.innerHTML = `
+                    <i class="fas fa-envelope me-2"></i>
+                    <strong>Email Verification Required</strong><br>
+                    Instagram has sent a verification code to your email. Please check your email and enter the code below.
+                    <div class="mt-2 text-center">
+                        <span class="badge bg-warning fs-6">Time remaining: ${status.countdown_seconds} seconds</span>
+                    </div>
+                `;
+            }
+        }
+        
         showVerificationSection();
+        
+        // Start countdown monitoring for verification
+        startVerificationCountdownMonitoring();
         
     } else if (status.running) {
         // Update progress based on step
@@ -1599,6 +1620,55 @@ function startLocalChrome() {
         console.error('Error starting local Chrome:', error);
         showNotification('Network error starting local Chrome setup', 'error');
     });
+}
+
+function startVerificationCountdownMonitoring() {
+    // Clear any existing interval
+    if (verificationCountdownInterval) {
+        clearInterval(verificationCountdownInterval);
+    }
+    
+    verificationCountdownInterval = setInterval(() => {
+        fetch('/api/login/status')
+            .then(response => response.json())
+            .then(status => {
+                if (status.requires_verification && status.countdown_seconds > 0) {
+                    // Update countdown display
+                    const verificationSection = document.getElementById('verificationSection');
+                    const alertElement = verificationSection.querySelector('.alert-warning');
+                    if (alertElement) {
+                        alertElement.innerHTML = `
+                            <i class="fas fa-envelope me-2"></i>
+                            <strong>Email Verification Required</strong><br>
+                            Instagram has sent a verification code to your email. Please check your email and enter the code below.
+                            <div class="mt-2 text-center">
+                                <span class="badge bg-warning fs-6">Time remaining: ${status.countdown_seconds} seconds</span>
+                            </div>
+                        `;
+                    }
+                } else if (!status.requires_verification || status.countdown_seconds <= 0) {
+                    // Stop monitoring if verification no longer required or timed out
+                    stopVerificationCountdownMonitoring();
+                    
+                    if (status.error) {
+                        // Show timeout error
+                        displayLoginError(status.error);
+                        resetLoginForm();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking verification countdown:', error);
+                stopVerificationCountdownMonitoring();
+            });
+    }, 1000); // Update every second
+}
+
+function stopVerificationCountdownMonitoring() {
+    if (verificationCountdownInterval) {
+        clearInterval(verificationCountdownInterval);
+        verificationCountdownInterval = null;
+    }
 }
 </script>
 {% endblock %} 

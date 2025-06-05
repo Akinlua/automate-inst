@@ -114,7 +114,7 @@ class ChromeProfileSetup:
         try:
             self.driver.get("https://www.instagram.com/accounts/login/")
             logger.info("Navigated to Instagram login page")
-            time.sleep(3)  # Wait for page to load
+            time.sleep(5)  # Wait for page to load
             return True
         except Exception as e:
             logger.error(f"Failed to navigate to Instagram: {e}")
@@ -130,6 +130,7 @@ class ChromeProfileSetup:
             return False
         
         try:
+            time.sleep(10)
             logger.info("Attempting automatic login...")
             
             # Wait for username field and fill it
@@ -205,7 +206,7 @@ class ChromeProfileSetup:
             logger.info("Login button clicked")
             
             # Wait a bit for login to process
-            time.sleep(5)
+            time.sleep(10)
             
             return True
             
@@ -610,6 +611,7 @@ class ChromeProfileSetup:
             logger.error(f"Unexpected error during setup: {e}")
         finally:
             # Always cleanup at the end
+            print("Cleaning up browser in run_setup")
             self.cleanup()
         
     def update_env_file(self):

@@ -26,14 +26,6 @@ except ImportError:
     UC_AVAILABLE = False
     logging.warning("undetected_chromedriver not available, falling back to regular Chrome")
 
-# Import rate limit handler
-try:
-    from rate_limit_handler import handle_instagram_rate_limit, check_if_rate_limited
-    RATE_HANDLER_AVAILABLE = True
-except ImportError:
-    RATE_HANDLER_AVAILABLE = False
-    logging.warning("Rate limit handler not available")
-
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -439,7 +431,7 @@ done
         except Exception as e:
             logger.warning(f"x11vnc attempt failed: {e}")
             
-        return False
+            return False
             
     def _find_vnc_pid(self):
         """Find VNC server process ID"""
@@ -589,21 +581,11 @@ done
             
         except Exception as e:
             logger.warning(f"Failed to configure Chrome profile: {e}")
-    
+            
     def start_chrome_in_vnc(self, profile_path: str) -> bool:
         """Start Chrome browser inside VNC session using undetected-chromedriver"""
         try:
             logger.info("Starting Chrome browser in VNC session with undetected-chromedriver...")
-            
-            # Check if we're currently rate limited
-            if RATE_HANDLER_AVAILABLE:
-                is_limited, last_blocked = check_if_rate_limited()
-                if is_limited:
-                    logger.warning(f"Currently rate limited since: {last_blocked}")
-                    logger.info("Attempting to handle rate limit...")
-                    success = handle_instagram_rate_limit(self, profile_path)
-                    if not success:
-                        logger.error("Failed to handle rate limit, continuing with caution...")
             
             # Set display for Chrome
             env = os.environ.copy()
@@ -624,7 +606,7 @@ done
             return False
     
     def _start_undetected_chrome(self, profile_path: str, env: dict) -> bool:
-        """Start Chrome using undetected-chromedriver with enhanced stealth (same config as setup_chrome.py)"""
+        """Start Chrome using undetected-chromedriver (same config as setup_chrome.py)"""
         try:
             logger.info("Using undetected-chromedriver for better Instagram compatibility...")
             
@@ -635,10 +617,8 @@ done
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             ssl._create_default_https_context = ssl._create_unverified_context
             
-            # Use exact same options as setup_chrome.py with additional stealth options
+            # Use exact same options as setup_chrome.py
             options = uc.ChromeOptions()
-            
-            # Core stealth options (from setup_chrome.py)
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-blink-features=AutomationControlled')
@@ -647,150 +627,24 @@ done
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
             
-            # Additional stealth options for Instagram
-            options.add_argument('--disable-web-security')
-            options.add_argument('--disable-features=VizDisplayCompositor')
-            options.add_argument('--disable-background-timer-throttling')
-            options.add_argument('--disable-backgrounding-occluded-windows')
-            options.add_argument('--disable-renderer-backgrounding')
-            options.add_argument('--disable-field-trial-config')
-            options.add_argument('--disable-back-forward-cache')
-            options.add_argument('--disable-ipc-flooding-protection')
-            options.add_argument('--disable-hang-monitor')
-            options.add_argument('--disable-client-side-phishing-detection')
-            options.add_argument('--disable-component-update')
-            options.add_argument('--disable-default-apps')
-            options.add_argument('--disable-domain-reliability')
-            options.add_argument('--disable-features=TranslateUI')
-            options.add_argument('--disable-sync')
-            options.add_argument('--no-first-run')
-            options.add_argument('--no-default-browser-check')
-            options.add_argument('--no-pings')
-            options.add_argument('--password-store=basic')
-            options.add_argument('--use-mock-keychain')
+            # Remove headless mode for VNC
+            # options.add_argument("--headless")  # Commented out for VNC
             
-            # User agent spoofing
-            options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            
-            # VNC-specific options
+            # Additional VNC-specific options
             options.add_argument(f'--display={self.vnc_display}')
             options.add_argument('--window-size=1280,720')
             options.add_argument('--start-maximized')
-            
-            # Preferences for better stealth
-            prefs = {
-                "profile.default_content_setting_values": {
-                    "notifications": 2,
-                    "geolocation": 2,
-                    "media_stream": 2
-                },
-                "profile.managed_default_content_settings": {
-                    "images": 1
-                },
-                "webrtc.ip_handling_policy": "disable_non_proxied_udp",
-                "webrtc.multiple_routes_enabled": False,
-                "webrtc.nonproxied_udp_enabled": False
-            }
-            options.add_experimental_option("prefs", prefs)
-            
-            # Note: excludeSwitches and useAutomationExtension may not be compatible with all versions
-            # options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            # options.add_experimental_option('useAutomationExtension', False)
             
             # Set environment for undetected-chromedriver
             original_display = os.environ.get('DISPLAY')
             os.environ['DISPLAY'] = self.vnc_display
             
             try:
-                # Start undetected Chrome with version detection
-                # Try with minimal options first for compatibility
-                try:
-                    driver = uc.Chrome(options=options, version_main=None)
-                except Exception as e:
-                    logger.warning(f"Failed with full options, trying minimal setup: {e}")
-                    
-                    # Create minimal options for better compatibility
-                    minimal_options = uc.ChromeOptions()
-                    minimal_options.add_argument('--no-sandbox')
-                    minimal_options.add_argument('--disable-dev-shm-usage')
-                    minimal_options.add_argument(f"--user-data-dir={profile_path}")
-                    minimal_options.add_argument(f'--display={self.vnc_display}')
-                    minimal_options.add_argument('--window-size=1280,720')
-                    
-                    # Try with minimal options
-                    driver = uc.Chrome(options=minimal_options, version_main=None)
+                # Start undetected Chrome
+                driver = uc.Chrome(options=options)
                 
-                # Wait before navigating to Instagram
-                time.sleep(3)
-                
-                # Navigate to Instagram with error handling
-                max_retries = 3
-                for attempt in range(max_retries):
-                    try:
-                        logger.info(f"Attempting to navigate to Instagram (attempt {attempt + 1}/{max_retries})...")
-                        driver.get("https://www.instagram.com/accounts/login/")
-                        
-                        # Wait and check for rate limiting
-                        time.sleep(5)
-                        
-                        # Check if we got blocked
-                        page_title = driver.title.lower()
-                        page_source = driver.page_source.lower()
-                        
-                        if "429" in page_source or "too many requests" in page_source or "rate limit" in page_source:
-                            logger.warning(f"Instagram rate limiting detected on attempt {attempt + 1}")
-                            
-                            # Use rate limit handler if available
-                            if RATE_HANDLER_AVAILABLE:
-                                logger.info("Using rate limit handler to resolve issue...")
-                                success = handle_instagram_rate_limit(self, profile_path, attempt + 1)
-                                if success:
-                                    logger.info("Rate limit handler resolved the issue")
-                                    continue
-                            
-                            if attempt < max_retries - 1:
-                                wait_time = (attempt + 1) * 60  # Progressive backoff (minutes)
-                                logger.info(f"Waiting {wait_time} seconds before retry...")
-                                time.sleep(wait_time)
-                                continue
-                            else:
-                                logger.error("Max retries reached for Instagram access due to rate limiting")
-                                logger.info("Try again later or use manual access through VNC")
-                                return False
-                        
-                        # Check for other blocking indicators
-                        blocking_indicators = [
-                            "something went wrong",
-                            "please wait",
-                            "try again later", 
-                            "blocked",
-                            "suspicious activity",
-                            "verify your account"
-                        ]
-                        
-                        if any(indicator in page_source for indicator in blocking_indicators):
-                            logger.warning(f"Instagram blocking detected: {[ind for ind in blocking_indicators if ind in page_source]}")
-                            if attempt < max_retries - 1:
-                                time.sleep(30)
-                                continue
-                        
-                        if "instagram" in page_title:
-                            logger.info("Successfully navigated to Instagram")
-                            break
-                        else:
-                            logger.warning(f"Unexpected page: {page_title}")
-                            if attempt < max_retries - 1:
-                                time.sleep(10)
-                                continue
-                                
-                    except Exception as e:
-                        logger.warning(f"Navigation attempt {attempt + 1} failed: {e}")
-                        if attempt < max_retries - 1:
-                            time.sleep(15)
-                            continue
-                        else:
-                            raise e
-                
+                # Navigate to Instagram login page
+                driver.get("https://www.instagram.com/accounts/login/")
                 logger.info("Chrome started successfully with undetected-chromedriver")
                 
                 # Store the driver process ID
@@ -800,7 +654,7 @@ done
                 # Store the driver instance to keep it alive
                 self.chrome_driver = driver
                 
-                # Start a background thread to keep the driver alive and monitor for issues
+                # Start a background thread to keep the driver alive
                 def keep_chrome_alive():
                     try:
                         while True:
@@ -809,15 +663,6 @@ done
                             if not psutil.pid_exists(self.chrome_pid):
                                 logger.warning("Chrome process died")
                                 break
-                            
-                            # Check for Instagram blocking every few minutes
-                            try:
-                                current_url = driver.current_url
-                                if "instagram.com" not in current_url and "429" not in driver.page_source:
-                                    logger.info(f"Chrome still active at: {current_url}")
-                            except Exception:
-                                pass  # Ignore errors during monitoring
-                                
                     except Exception as e:
                         logger.warning(f"Chrome keepalive thread error: {e}")
                 

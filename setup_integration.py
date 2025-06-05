@@ -133,12 +133,50 @@ class WebSetupIntegration:
             
             # Check if verification is required
             if self._check_email_verification_required():
+                print(f"verification found")
                 self.setup_status.update({
                     'step': 'verification_required',
-                    'message': 'Email verification required. Please check your email.',
-                    'requires_verification': True
+                    'message': 'Email verification required. Please check your email and enter the code in the frontend. Waiting 120 seconds for input...',
+                    'requires_verification': True,
+                    'countdown_seconds': 120  # Add countdown field for frontend
                 })
-                return
+                
+                # Wait 120 seconds for user to input verification code on frontend
+                wait_time = 120
+                for i in range(wait_time):
+                    time.sleep(1)
+                    # Update countdown message
+                    print(f"waiting {i} seconds")
+                    remaining = wait_time - i
+                    self.setup_status.update({
+                        'message': f'Email verification required. Please enter the code in the frontend. Waiting {remaining} seconds...',
+                        'countdown_seconds': remaining  # Update countdown for frontend
+                    })
+                    print(f"after update")  
+                    # Check if verification was submitted (status would change)
+                    if not self.setup_status.get('requires_verification', False):
+                        print(f"breaked")
+                        break
+                
+                # If still requires verification after wait, the user didn't submit code
+                print("after break")
+                if self.setup_status.get('requires_verification', False):
+                    print("timeout")
+                    self.setup_status.update({
+                        'running': False,
+                        'error': 'Verification timeout. Please try again and enter the code within 120 seconds.',
+                        'step': 'failed',
+                        'requires_verification': False,
+                        'countdown_seconds': 0  # Reset countdown
+                    })
+                    # Only cleanup on timeout
+                    print("Cleaning up browser on timeout")
+                    self.setup_instance.cleanup()
+                    return
+                
+                # If we reach here, verification was submitted via submit_verification_code
+                # The _complete_setup() will be called from submit_verification_code method
+                # return
             
             # Step 6: Complete setup
             self._complete_setup()
@@ -150,23 +188,35 @@ class WebSetupIntegration:
                 'error': f'Setup failed: {str(e)}',
                 'step': 'failed'
             })
+            # Cleanup on exception
+            if self.setup_instance:
+                print("Cleaning up browser on exception")
+                self.setup_instance.cleanup()
         finally:
-            # Clear credentials from environment
-            # clean up driver quite
-            self.setup_instance.cleanup()
+            # Clear credentials from environment (but don't cleanup browser if verification pending)
             if 'INSTAGRAM_USERNAME' in os.environ:
                 del os.environ['INSTAGRAM_USERNAME']
             if 'INSTAGRAM_PASSWORD' in os.environ:
                 del os.environ['INSTAGRAM_PASSWORD']
+            
+            # Only cleanup if not waiting for verification and not already completed and not currently processing verification
+            if (not self.setup_status.get('requires_verification', False) and 
+                not self.setup_status.get('success', False) and 
+                self.setup_status.get('step') != 'verification_submit' and
+                self.setup_instance):
+                print("Cleaning up browser on cleanup")
+                self.setup_instance.cleanup()
     
     def _check_email_verification_required(self):
         """Check if email verification is required"""
         try:
+            time.sleep(30)
+            print(f"Checking for verification input fields")
             # Check for verification input fields
             verification_indicators = [
-                'input.x1i10hfl.xggy1nq.xtpw4lu.x1tutvks.x1s3xk63.x1s07b3s.x1a2a7pz.xjbqb8w.x1v8p93f.xogb00i.x16stqrj.x1ftr3km.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.xzsf02u.x1lliihq.x15h3p50.x10emqs4.x1vr9vpq.x1iyjqo2.x1y44fgy.x10d0gm4.x1fhayk4.x16wdlz0.x3cjxhe.x8182xy.xwrv7xz.xeuugli.xlyipyv.x1hcrkkg.xfvqz1d.x12vv892.x163jz68.xpp3fsf.xvr60a6.x1sfh74k.x53uk0m.x185fvkj.x1p97g3g.xmtqnhx.x11ig0mb.x1quw8ve.xx0ingd.xp5op4.xs8nzd4.x1fzehxr.xha3pab',
+                'input.x1i10hfl.xggy1nq.xtpw4lu.x1tutvks.x1s3xk63.x1s07b3s.x1a2a7pz.xjbqb8w.x1v8p93f.x1o3jo1z.x16stqrj.xv5lvn5.x1ejq31n.x18oe1m7.x1sy0etr.xstzfhl.x972fbf.x10w94by.x1qhh985.x14e42zd.x9f619.xzsf02u.x1lliihq.x15h3p50.x10emqs4.x1vr9vpq.x1iyjqo2.x1y44fgy.x10d0gm4.x1fhayk4.x16wdlz0.x3cjxhe.xe9ewy2.x11lt19s.xeuugli.xlyipyv.x1hcrkkg.xfvqz1d.x12vv892.x1hu168l.xttzon8.xvr60a6.x1sfh74k.x53uk0m.x185fvkj.x1p97g3g.xmtqnhx.x11ig0mb.x1quw8ve.xx0ingd.xp5op4.xs8nzd4.x1fzehxr.xha3pab',
                 'input[placeholder*="Code"]',
-                'input[aria-label*="Code"]',
+                'input[aria-label*="Code"]', 
                 'input[name="verificationCode"]'
             ]
             
@@ -177,9 +227,10 @@ class WebSetupIntegration:
             
             for selector in verification_indicators:
                 try:
-                    WebDriverWait(self.setup_instance.driver, 3).until(
+                    WebDriverWait(self.setup_instance.driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                     )
+                    print(f"Verification input field found: {selector}")
                     return True
                 except TimeoutException:
                     continue
@@ -192,13 +243,16 @@ class WebSetupIntegration:
     
     def submit_verification_code(self, code):
         """Submit email verification code"""
+        print(f"submit verification code")
+        print(f"requires verification: {self.setup_status['requires_verification']}")
         if not self.setup_status['requires_verification']:
+            print(f"verification not required")
             return {'success': False, 'error': 'Verification not required'}
         
         try:
             self.setup_status.update({
                 'step': 'verification_submit',
-                'message': 'Submitting verification code...'
+                'message': 'Submitting verification code...',
             })
             
             from selenium.webdriver.common.by import By
@@ -206,90 +260,217 @@ class WebSetupIntegration:
             from selenium.webdriver.support import expected_conditions as EC
             from selenium.common.exceptions import TimeoutException, NoSuchElementException
             
-            # Find verification input
-            verification_selectors = [
-                'input.x1i10hfl.xggy1nq.xtpw4lu.x1tutvks.x1s3xk63.x1s07b3s.x1a2a7pz.xjbqb8w.x1v8p93f.xogb00i.x16stqrj.x1ftr3km.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.xzsf02u.x1lliihq.x15h3p50.x10emqs4.x1vr9vpq.x1iyjqo2.x1y44fgy.x10d0gm4.x1fhayk4.x16wdlz0.x3cjxhe.x8182xy.xwrv7xz.xeuugli.xlyipyv.x1hcrkkg.xfvqz1d.x12vv892.x163jz68.xpp3fsf.xvr60a6.x1sfh74k.x53uk0m.x185fvkj.x1p97g3g.xmtqnhx.x11ig0mb.x1quw8ve.xx0ingd.xp5op4.xs8nzd4.x1fzehxr.xha3pab',
-                'input[placeholder*="Code"]',
-                'input[aria-label*="Code"]',
-                'input[name="verificationCode"]'
-            ]
+            # Check if driver is still available
+            if not self.setup_instance or not hasattr(self.setup_instance, 'driver') or not self.setup_instance.driver:
+                print(f"browser session expired")
+                self.setup_status.update({
+                    'running': False,
+                    'error': 'Browser session expired. Please restart the login process.',
+                    'step': 'failed'
+                })
+                return {'success': False, 'error': 'Browser session expired. Please restart the login process.'}
             
-            verification_input = None
-            for selector in verification_selectors:
-                try:
-                    verification_input = WebDriverWait(self.setup_instance.driver, 5).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                    )
-                    break
-                except TimeoutException:
-                    continue
+            # Find verification input using the two-step approach
+            # First find the parent div, then the input inside it
+            try:
+                # Execute JavaScript to find and fill the verification input
+                verification_script = f"""
+                // Find the parent div
+                const parentDiv = document.querySelector('div.x6s0dn4.x78zum5.x1qughib.xh8yej3');
+
+                if (parentDiv) {{
+                    // Then find the input inside it
+                    const input = parentDiv.querySelector('input.x1i10hfl.xggy1nq.xtpw4lu.x1tutvks.x1s3xk63.x1s07b3s.x1a2a7pz.xjbqb8w.x1v8p93f.x1o3jo1z.x16stqrj.xv5lvn5.x1ejq31n.x18oe1m7.x1sy0etr.xstzfhl.x972fbf.x10w94by.x1qhh985.x14e42zd.x9f619.xzsf02u.x1lliihq.x15h3p50.x10emqs4.x1vr9vpq.x1iyjqo2.x1y44fgy.x10d0gm4.x1fhayk4.x16wdlz0.x3cjxhe.xe9ewy2.x11lt19s.xeuugli.xlyipyv.x1hcrkkg.xfvqz1d.x12vv892.x1hu168l.xttzon8.xvr60a6.x1sfh74k.x53uk0m.x185fvkj.x1p97g3g.xmtqnhx.x11ig0mb.x1quw8ve.xx0ingd.xp5op4.xs8nzd4.x1fzehxr.xha3pab');
+
+                    if (input) {{
+                        // Set the value using native setter to update property properly
+                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                            window.HTMLInputElement.prototype,
+                            "value"
+                        ).set;
+
+                        nativeInputValueSetter.call(input, "{code}");
+
+                        // Trigger events (very important for React/Vue apps)
+                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        
+                        return 'success';
+                    }} else {{
+                        return 'input_not_found';
+                    }}
+                }} else {{
+                    return 'parent_not_found';
+                }}
+                """
+                
+                result = self.setup_instance.driver.execute_script(verification_script)
+                print(f"Verification script result: {result}")
+                
+                if result == 'parent_not_found':
+                    print(f"could not find verification parent div")
+                    self.setup_status.update({
+                        'running': False,
+                        'error': 'Could not find verification form. Page may have changed.',
+                        'step': 'failed'
+                    })
+                    if self.setup_instance:
+                        print(f"clean up here 7")
+                        self.setup_instance.cleanup()
+                    return {'success': False, 'error': 'Could not find verification form'}
+                    
+                elif result == 'input_not_found':
+                    print(f"could not find verification input field inside parent")
+                    self.setup_status.update({
+                        'running': False,
+                        'error': 'Could not find verification input field. Page may have changed.',
+                        'step': 'failed'
+                    })
+                    if self.setup_instance:
+                        print(f"clean up here 8")
+                        self.setup_instance.cleanup()
+                    return {'success': False, 'error': 'Could not find verification input field'}
+                    
+                elif result == 'success':
+                    print(f"code sent successfully")
+                else:
+                    print(f"unexpected result: {result}")
+                    
+            except Exception as js_error:
+                print(f"JavaScript execution error: {js_error}")
+                self.setup_status.update({
+                    'running': False,
+                    'error': f'Failed to execute verification script: {str(js_error)}',
+                    'step': 'failed'
+                })
+                if self.setup_instance:
+                    print(f"clean up here js_error")
+                    self.setup_instance.cleanup()
+                return {'success': False, 'error': f'Script execution failed: {str(js_error)}'}
             
-            if not verification_input:
-                return {'success': False, 'error': 'Could not find verification input field'}
-            
-            # Clear and enter code
-            verification_input.clear()
-            verification_input.send_keys(code)
-            
-            # Find and click continue button
-            continue_selectors = [
-                'div.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.xl56j7k.x6s0dn4.xozqiw3.x1q0g3np.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.xtvsq51.xqdzp0n.x15p4eik.x1ismhnl.x16ie3sq.x1xila8y.x1xarc30.xrwyoh0',
-                'div[type="submit"]',
-                'div[role="button"]'
-            ]
-            
-            continue_button = None
-            for selector in continue_selectors:
-                try:
-                    continue_button = self.setup_instance.driver.find_element(By.CSS_SELECTOR, selector)
-                    if continue_button.is_enabled():
-                        break
-                except NoSuchElementException:
-                    continue
-            
-            if not continue_button:
-                return {'success': False, 'error': 'Could not find Continue button'}
-            
-            continue_button.click()
-            
-            # Wait and check if verification was successful
             time.sleep(5)
             
-            current_url = self.setup_instance.driver.current_url
-            if "challenge" in current_url or "verify" in current_url:
-                # Check for error messages
-                error_selectors = [
-                    '[role="alert"]',
-                    '.error',
-                    '[aria-live="polite"]'
-                ]
+            # Find and click continue button using JavaScript
+            continue_script = """
+                const classSelector = 'div.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.xl56j7k.x6s0dn4.xozqiw3.x1q0g3np.x972fbf.x10w94by.x1qhh985.x14e42zd.x9f619.xtvsq51.xqdzp0n.x15p4eik.x1ismhnl.x16ie3sq.x1xila8y.x1bumbmr.xc8cyl1';
+
+                const button = document.querySelector(classSelector);
+                if (button) {
+                    button.click();
+                    console.log("✅ Clicked the continue button.");
+                    'success'; // Final expression is returned
+                } else {
+                    console.log("❌ Button not found.");
+                    'button_not_found';
+                }
+            """
+
+            
+            try:
+                result = self.setup_instance.driver.execute_script(continue_script)
+                print(f"Continue button script result: {result}")
+
                 
-                for error_selector in error_selectors:
-                    try:
-                        error_element = self.setup_instance.driver.find_element(By.CSS_SELECTOR, error_selector)
-                        if error_element.is_displayed() and error_element.text.strip():
-                            return {'success': False, 'error': f'Verification failed: {error_element.text}'}
-                    except NoSuchElementException:
-                        continue
+                # if result != 'success':
+                #     print(f"could not find continue button")
+                #     self.setup_status.update({
+                #         'running': False,
+                #         'error': 'Could not find Continue button. Page may have changed.',
+                #         'step': 'failed'
+                #     })
+                #     if self.setup_instance:
+                #         print(f"clean up here 6")
+                #         self.setup_instance.cleanup()
+                #     return {'success': False, 'error': 'Could not find Continue button'}
                 
-                return {'success': False, 'error': 'Verification code appears to be incorrect'}
+                print(f"continue button clicked")
+                
+            except Exception as js_error:
+                print(f"Continue button JavaScript execution error: {js_error}")
+                self.setup_status.update({
+                    'running': False,
+                    'error': f'Failed to execute continue button script: {str(js_error)}',
+                    'step': 'failed'
+                })
+                if self.setup_instance:
+                    print(f"clean up here js_error")
+                    self.setup_instance.cleanup()
+                return {'success': False, 'error': f'Continue button script execution failed: {str(js_error)}'}
+            
+            # Wait and check if verification was successful
+            time.sleep(15)
+            print(f"waiting 15 seconds come on")
+            # current_url = self.setup_instance.driver.current_url
+            # print(f"current url: {current_url}")
+            # if "challenge" in current_url or "verify" or "codeentry" in current_url:
+            #     print(f"verification failed")
+            #     # Check for error messages
+            #     error_selectors = [
+            #         '[role="alert"]',
+            #         '.error',
+            #         '[aria-live="polite"]'
+            #     ]
+                
+            #     for error_selector in error_selectors:
+            #         try:
+            #             error_element = self.setup_instance.driver.find_element(By.CSS_SELECTOR, error_selector)
+            #             if error_element.is_displayed() and error_element.text.strip():
+            #                 error_msg = f'Verification failed: {error_element.text}'
+            #                 self.setup_status.update({
+            #                     'running': False,
+            #                     'error': error_msg,
+            #                     'step': 'failed'
+            #                 })
+            #                 if self.setup_instance:
+            #                     print(f"clean up here 5")
+            #                     self.setup_instance.cleanup()
+            #                 return {'success': False, 'error': error_msg}
+            #         except NoSuchElementException:
+            #             continue
+                
+            #     # Generic error if no specific error found
+            #     error_msg = 'Verification code appears to be incorrect'
+            #     self.setup_status.update({
+            #         'running': False,
+            #         'error': error_msg,
+            #         'step': 'failed'
+            #     })
+            #     if self.setup_instance:
+            #         print(f"clean up here 9")
+                    
+            #         self.setup_instance.cleanup()
+            #     return {'success': False, 'error': error_msg}
             
             # Verification successful, complete setup
-            self._complete_setup()
+            print(f"verification successful")
+            self.setup_status.update({
+                'step': 'verification_submit',
+                'message': 'Submitting verification code...',
+                'requires_verification': False,  # Clear the flag to stop the waiting loop
+                'countdown_seconds': 0  # Reset countdown when verification is submitted
+            })
+            # self._complete_setup()
             return {'success': True, 'message': 'Verification successful'}
             
         except Exception as e:
             logger.error(f"Verification error: {e}")
+            error_msg = f'Verification failed: {str(e)}'
             self.setup_status.update({
                 'running': False,
-                'error': f'Verification failed: {str(e)}',
+                'error': error_msg,
                 'step': 'failed'
             })
+            # Cleanup browser on exception
+            if self.setup_instance:
+                print(f"clean up here 10")
+                
+                self.setup_instance.cleanup()
             return {'success': False, 'error': str(e)}
     
     def _complete_setup(self):
         """Complete the setup process"""
         try:
+            print(f"complete setup")
             # Handle save info prompt
             self.setup_status.update({
                 'step': 'save_info',
@@ -314,12 +495,21 @@ class WebSetupIntegration:
                     'chrome_profile_path': os.path.join(os.getcwd(), "chrome_profile_instagram")
                 })
                 self._save_profile_path()
+                
+                # Cleanup browser after successful setup
+                if self.setup_instance:
+                    print("Cleaning up browser after successful setup")
+                    self.setup_instance.cleanup()
             else:
                 self.setup_status.update({
                     'running': False,
                     'error': 'Could not verify login success',
                     'step': 'failed'
                 })
+                # Cleanup browser on failure
+                if self.setup_instance:
+                    print("Cleaning up browser on failure")
+                    self.setup_instance.cleanup()
             
         except Exception as e:
             logger.error(f"Setup completion error: {e}")
@@ -328,6 +518,10 @@ class WebSetupIntegration:
                 'error': f'Setup completion failed: {str(e)}',
                 'step': 'failed'
             })
+            # Cleanup browser on exception
+            if self.setup_instance:
+                print("Cleaning up browser on exception in complete setup")
+                self.setup_instance.cleanup()
     
     def _save_profile_path(self):
         """Save the Chrome profile path to .env file"""
