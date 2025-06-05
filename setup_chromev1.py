@@ -25,6 +25,7 @@ logger = logging.getLogger("chrome_setup")
 # Load environment variables
 load_dotenv()
 
+PROXY_SERVER = "http://ng.decodo.com:42032"
 # Configuration - Use fixed profile path without timestamps
 CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "chromedriver")
 CUSTOM_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile_instagram")
@@ -56,7 +57,7 @@ class ChromeProfileSetup:
         chrome_options = Options()
         
         # Clean existing profile and create fresh one
-        self._clean_existing_profile()
+        # self._clean_existing_profile()
         
         # Use custom profile directory
         chrome_options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
@@ -103,6 +104,7 @@ class ChromeProfileSetup:
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
+            options.add_argument(f"--proxy-server={PROXY_SERVER}")
 
 
             self.driver = uc.Chrome(options=options)

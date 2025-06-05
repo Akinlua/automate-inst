@@ -807,7 +807,7 @@ done
                     logger.info(f"Using HTTP proxy: http://{self.proxy_server}")
             
             # Add target URL
-            chrome_cmd.append('https://www.instagram.com/accounts/login/')
+            chrome_cmd.append('https://www.instagram.com')
             
             # Try different Chrome executables
             chrome_executables = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium']
@@ -1015,7 +1015,7 @@ done
             return False
 
 # Global VNC manager instance
-vnc_manager = VNCServerManager(PROXY_SERVER)
+vnc_manager = VNCServerManager()
 
 def start_vnc_chrome_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
     """Start VNC session with Chrome for manual login"""
