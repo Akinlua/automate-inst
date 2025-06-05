@@ -97,7 +97,7 @@ class ChromeProfileSetup:
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
 
-            options.add_argument("--headless")
+            # options.add_argument("--headless")
 
             self.driver = uc.Chrome(options=options)
             self.wait = WebDriverWait(self.driver, 10)
@@ -114,6 +114,12 @@ class ChromeProfileSetup:
         try:
             self.driver.get("https://www.instagram.com/accounts/login/")
             logger.info("Navigated to Instagram login page")
+            # Take screenshot of login page
+            try:
+                self.driver.save_screenshot("login.png")
+                logger.info("Saved screenshot of login page to login.png")
+            except Exception as e:
+                logger.error(f"Failed to save login page screenshot: {e}")
             time.sleep(5)  # Wait for page to load
             return True
         except Exception as e:
@@ -132,6 +138,12 @@ class ChromeProfileSetup:
         try:
             time.sleep(10)
             logger.info("Attempting automatic login...")
+
+            try:
+                self.driver.save_screenshot("login2.png")
+                logger.info("Saved screenshot of login page to login.png")
+            except Exception as e:
+                logger.error(f"Failed to save login page screenshot: {e}")
             
             # Wait for username field and fill it
             username_selectors = [

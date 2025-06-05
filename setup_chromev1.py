@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import logging
+import shutil
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -24,7 +25,7 @@ logger = logging.getLogger("chrome_setup")
 # Load environment variables
 load_dotenv()
 
-# Configuration
+# Configuration - Use fixed profile path without timestamps
 CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "chromedriver")
 CUSTOM_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile_instagram")
 
@@ -32,14 +33,30 @@ class ChromeProfileSetup:
     def __init__(self):
         self.driver = None
         
+    def _clean_existing_profile(self):
+        """Remove existing profile completely and create fresh directory"""
+        try:
+            if os.path.exists(CUSTOM_PROFILE_PATH):
+                logger.info(f"Removing existing Chrome profile: {CUSTOM_PROFILE_PATH}")
+                # Force remove the directory and all contents
+                shutil.rmtree(CUSTOM_PROFILE_PATH, ignore_errors=True)
+                time.sleep(1)  # Give filesystem time to complete the operation
+            
+            # Create fresh profile directory
+            os.makedirs(CUSTOM_PROFILE_PATH, exist_ok=True)
+            logger.info(f"Created fresh Chrome profile directory: {CUSTOM_PROFILE_PATH}")
+            
+        except Exception as e:
+            logger.error(f"Failed to clean existing profile: {e}")
+            # If we can't clean it, try to work with what we have
+            os.makedirs(CUSTOM_PROFILE_PATH, exist_ok=True)
+        
     def setup_chrome_with_custom_profile(self):
         """Setup Chrome driver with a custom profile directory"""
         chrome_options = Options()
         
-        # Create custom profile directory if it doesn't exist
-        if not os.path.exists(CUSTOM_PROFILE_PATH):
-            os.makedirs(CUSTOM_PROFILE_PATH)
-            logger.info(f"Created custom profile directory: {CUSTOM_PROFILE_PATH}")
+        # Clean existing profile and create fresh one
+        self._clean_existing_profile()
         
         # Use custom profile directory
         chrome_options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
@@ -80,7 +97,7 @@ class ChromeProfileSetup:
 
             options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
             # options.add_argument("--profile-directory=Default")
-            logger.info(f"Using V1 Chrome profile: {CUSTOM_PROFILE_PATH}")
+            logger.info(f"Using Chrome profile: {CUSTOM_PROFILE_PATH}")
 
             options.add_argument('--ignore-ssl-errors')
             options.add_argument('--ignore-certificate-errors')
