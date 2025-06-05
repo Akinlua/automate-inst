@@ -1143,14 +1143,12 @@ function submitVerificationCode() {
         if (data.success) {
             showNotification('Verification successful!', 'success');
             
-            // Show progress and complete setup
+            // Show progress and continue setup (not completion)
             showProgressSection();
-            updateProgress(100, 'Verification completed successfully!');
+            updateProgress(80, 'Verification successful! Completing login setup...');
             
-            setTimeout(() => {
-                checkInstagramLoginStatus();
-                resetLoginForm();
-            }, 1500);
+            // Continue monitoring login progress instead of treating as completion
+            // startLoginProgressMonitoring();
         } else {
             showNotification(data.error || 'Verification failed', 'error');
             resetVerificationForm();

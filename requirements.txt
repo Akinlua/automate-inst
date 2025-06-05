@@ -9,3 +9,4 @@ werkzeug
 pytz
 psutil
 undetected_chromedriver
+setuptools
