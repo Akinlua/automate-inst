@@ -2,7 +2,7 @@
 """
 VNC Server Setup for Remote Chrome Browser Access
 This module sets up a VNC server to allow remote access to Chrome browser
-for manual Instagram login with anti-detection measures.
+for manual Instagram login with anti-detection measures and proxy support.
 """
 
 import os
@@ -29,8 +29,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("vnc_setup")
 
+PROXY_SERVER = "http://ng.decodo.com:42032"
+
 class VNCServerManager:
-    def __init__(self):
+    def __init__(self, proxy_server: Optional[str] = None):
         self.vnc_display = ":1"
         self.vnc_port = 5901
         self.vnc_web_port = 6080
@@ -40,10 +42,18 @@ class VNCServerManager:
         self.chrome_pid = None
         self.xvfb_pid = None
         
+        # Proxy configuration
+        self.proxy_server = proxy_server
+        
         # VNC configuration
         self.vnc_dir = Path.home() / ".vnc"
         self.xstartup_file = self.vnc_dir / "xstartup"
         self.passwd_file = self.vnc_dir / "passwd"
+        
+    def set_proxy(self, proxy_server: str):
+        """Set proxy server for Chrome"""
+        self.proxy_server = proxy_server
+        logger.info(f"Proxy server set to: {proxy_server}")
         
     def check_system_compatibility(self) -> bool:
         """Check if the system supports VNC"""
@@ -74,8 +84,7 @@ class VNCServerManager:
             packages = [
                 # VNC servers
                 'tigervnc-standalone-server',
-                'tigervnc-xorg-extension',
-                'tigervnc-viewer',
+                'tigervnc-common',
                 
                 # Desktop environment - XFCE (lightweight but full-featured)
                 'xfce4',
@@ -93,7 +102,7 @@ class VNCServerManager:
                 
                 # Web access
                 'websockify',
-                'novnc',
+                'python3-websockify',
                 
                 # Audio support
                 'pulseaudio',
@@ -102,9 +111,10 @@ class VNCServerManager:
                 # Additional tools
                 'dbus-x11',
                 'at-spi2-core',
-                'firefox-esr',  # Backup browser
-                'file-manager-actions',
+                'firefox',  # Standard Firefox instead of firefox-esr
                 'thunar',
+                'curl',
+                'wget',
                 
                 # Chrome/Chromium requirements
                 'libnss3',
@@ -115,11 +125,29 @@ class VNCServerManager:
                 'libxrandr2',
                 'libgbm1',
                 'libxss1',
-                'libasound2'
+                'libasound2-dev'  # Development package for audio
             ]
             
-            cmd = ['apt-get', 'install', '-y'] + packages
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            # Install packages in batches to avoid issues
+            batch_size = 10
+            for i in range(0, len(packages), batch_size):
+                batch = packages[i:i + batch_size]
+                cmd = ['apt-get', 'install', '-y'] + batch
+                try:
+                    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+                    logger.info(f"Successfully installed batch: {', '.join(batch)}")
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"Some packages in batch failed: {e.stderr}")
+                    # Try installing packages one by one
+                    for package in batch:
+                        try:
+                            subprocess.run(['apt-get', 'install', '-y', package], check=True, capture_output=True)
+                            logger.info(f"Successfully installed: {package}")
+                        except subprocess.CalledProcessError:
+                            logger.warning(f"Failed to install: {package} - continuing anyway")
+            
+            # Install noVNC separately
+            self._install_novnc()
             
             logger.info("VNC dependencies and desktop environment installed successfully")
             return True
@@ -131,6 +159,44 @@ class VNCServerManager:
         except Exception as e:
             logger.error(f"Unexpected error installing dependencies: {e}")
             return False
+    
+    def _install_novnc(self):
+        """Install noVNC for web-based VNC access"""
+        try:
+            logger.info("Installing noVNC...")
+            
+            # Create noVNC directory
+            novnc_dir = Path("/usr/share/novnc")
+            novnc_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Download and install noVNC if not present
+            if not (novnc_dir / "vnc.html").exists():
+                import tempfile
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_path = Path(temp_dir)
+                    
+                    # Download noVNC
+                    subprocess.run([
+                        'wget', '-q', 
+                        'https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz'
+                    ], cwd=temp_path, check=True)
+                    
+                    # Extract
+                    subprocess.run([
+                        'tar', '-xzf', 'v1.4.0.tar.gz'
+                    ], cwd=temp_path, check=True)
+                    
+                    # Copy to destination
+                    subprocess.run([
+                        'cp', '-r', str(temp_path / "noVNC-1.4.0" / "*"), str(novnc_dir)
+                    ], shell=True, check=True)
+                    
+                logger.info("noVNC installed successfully")
+            else:
+                logger.info("noVNC already installed")
+                
+        except Exception as e:
+            logger.warning(f"Failed to install noVNC: {e}")
             
     def setup_vnc_server(self) -> bool:
         """Setup and configure VNC server with proper desktop"""
@@ -303,24 +369,23 @@ done
             logger.info(f"Starting websockify on port {self.vnc_web_port}...")
             
             # Start websockify in background
-            cmd = [
-                'websockify',
-                '--web=/usr/share/novnc/',
-                f'{self.vnc_web_port}',
-                f'localhost:{self.vnc_port}'
-            ]
-            
-            try:
-                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            except FileNotFoundError:
-                # Try without web directory
+            novnc_path = "/usr/share/novnc/"
+            if Path(novnc_path).exists():
+                cmd = [
+                    'websockify',
+                    '--web', novnc_path,
+                    f'{self.vnc_web_port}',
+                    f'localhost:{self.vnc_port}'
+                ]
+            else:
+                # Fallback without web directory
                 cmd = [
                     'websockify',
                     f'{self.vnc_web_port}',
                     f'localhost:{self.vnc_port}'
                 ]
-                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.websockify_pid = process.pid
             logger.info(f"Websockify started with PID: {self.websockify_pid}")
             
@@ -484,9 +549,9 @@ done
             return False
     
     def _start_stealth_chrome(self, profile_path: str, env: dict) -> bool:
-        """Start Chrome with comprehensive anti-detection measures"""
+        """Start Chrome with comprehensive anti-detection measures and proxy support"""
         try:
-            logger.info("Starting Chrome with stealth configuration...")
+            logger.info("Starting Chrome with stealth configuration and proxy support...")
             
             # Comprehensive anti-detection Chrome flags
             chrome_cmd = [
@@ -531,11 +596,24 @@ done
                 
                 # Profile and user data
                 f'--user-data-dir={profile_path}',
-                '--profile-directory=Default',
-                
-                # Target URL
-                'https://www.instagram.com/accounts/login/'
+                '--profile-directory=Default'
             ]
+            
+            # Add proxy configuration if provided
+            if self.proxy_server:
+                if self.proxy_server.startswith('socks'):
+                    chrome_cmd.append(f'--proxy-server={self.proxy_server}')
+                    logger.info(f"Using SOCKS proxy: {self.proxy_server}")
+                elif self.proxy_server.startswith('http'):
+                    chrome_cmd.append(f'--proxy-server={self.proxy_server}')
+                    logger.info(f"Using HTTP proxy: {self.proxy_server}")
+                else:
+                    # Assume HTTP if no protocol specified
+                    chrome_cmd.append(f'--proxy-server=http://{self.proxy_server}')
+                    logger.info(f"Using HTTP proxy: http://{self.proxy_server}")
+            
+            # Add target URL
+            chrome_cmd.append('https://www.instagram.com/accounts/login/')
             
             # Try different Chrome executables
             chrome_executables = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium']
@@ -597,6 +675,7 @@ done
             'vnc_password': self.vnc_password,
             'web_url': f'http://localhost:{self.vnc_web_port}/vnc.html',
             'direct_vnc': f'localhost:{self.vnc_port}',
+            'proxy_server': self.proxy_server,
             'status': self.get_status()
         }
         
@@ -608,7 +687,9 @@ done
             'chrome_running': False,
             'vnc_pid': self.vnc_pid,
             'websockify_pid': self.websockify_pid,
-            'chrome_pid': self.chrome_pid
+            'chrome_pid': self.chrome_pid,
+            'proxy_enabled': bool(self.proxy_server),
+            'proxy_server': self.proxy_server
         }
         
         try:
@@ -740,10 +821,13 @@ done
             return False
 
 # Global VNC manager instance
-vnc_manager = VNCServerManager()
+vnc_manager = VNCServerManager(PROXY_SERVER)
 
-def start_vnc_chrome_session(profile_path: str) -> Dict[str, Any]:
+def start_vnc_chrome_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
     """Start VNC session with Chrome for manual login"""
+    global vnc_manager
+    if proxy_server:
+        vnc_manager.set_proxy(proxy_server)
     return vnc_manager.setup_and_start(profile_path)
     
 def get_vnc_status() -> Dict[str, Any]:
@@ -761,6 +845,10 @@ def stop_vnc_session():
 def restart_chrome_fresh_session(profile_path: str) -> bool:
     """Restart Chrome with fresh session - callable from web interface"""
     return vnc_manager.restart_chrome_fresh(profile_path)
+
+def set_vnc_proxy(proxy_server: str):
+    """Set proxy server for VNC Chrome sessions"""
+    vnc_manager.set_proxy(proxy_server)
 
 if __name__ == "__main__":
     # Test VNC setup

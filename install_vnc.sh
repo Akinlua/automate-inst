@@ -91,6 +91,7 @@ install_vnc_dependencies() {
                 fluxbox \
                 x11vnc \
                 websockify \
+                python3-websockify \
                 xterm \
                 firefox \
                 fonts-liberation \
@@ -111,7 +112,8 @@ install_vnc_dependencies() {
                 software-properties-common \
                 apt-transport-https \
                 ca-certificates \
-                lsb-release
+                lsb-release \
+                libasound2-dev
             ;;
         centos|rhel|fedora)
             # For CentOS/RHEL/Fedora
