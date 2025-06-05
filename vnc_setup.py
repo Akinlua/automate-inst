@@ -523,6 +523,7 @@ done
                 '--disable-features=VizServiceDisplayCompositor',
                 
                 # User agent and window management
+                '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
                 '--window-size=1920,1080',
                 '--start-maximized',
                 '--disable-infobars',
