@@ -39,6 +39,8 @@ import undetected_chromedriver as uc
 # Load environment variables
 load_dotenv()
 
+PROXY_SERVER = "http://ng.decodo.com:42032"
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -236,7 +238,9 @@ class InstagramPoster:
             options.add_argument('--ignore-ssl-errors')
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
-            # options.add_argument("--headless")
+            options.add_argument(f"--proxy-server={PROXY_SERVER}")
+
+            options.add_argument("--headless")
 
 
             self.driver = uc.Chrome(options=options)

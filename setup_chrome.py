@@ -33,6 +33,7 @@ CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "chromedriver")
 CUSTOM_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile_instagram")
 INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
 INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+PROXY_SERVER = "http://ng.decodo.com:42032"
 
 class ChromeProfileSetup:
     def __init__(self):
@@ -51,7 +52,7 @@ class ChromeProfileSetup:
             logger.error(f"Error closing browser: {e}")
         
     def setup_chrome_with_custom_profile(self):
-        """Setup Chrome driver with a custom profile directory"""
+        """Setup Chrome driver with a custom profile directory and proxy"""
         chrome_options = Options()
         
         # Create custom profile directory if it doesn't exist
@@ -61,6 +62,10 @@ class ChromeProfileSetup:
         
         # Use custom profile directory
         chrome_options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
+        
+        # Add proxy configuration
+        chrome_options.add_argument(f"--proxy-server={PROXY_SERVER}")
+        logger.info(f"Using proxy server: {PROXY_SERVER}")
         
         # Additional options for better stability
         chrome_options.add_argument("--no-sandbox")
@@ -97,13 +102,16 @@ class ChromeProfileSetup:
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
+            
+            # Add proxy configuration to undetected chrome options
+            options.add_argument(f"--proxy-server={PROXY_SERVER}")
 
             options.add_argument("--headless")
 
             self.driver = uc.Chrome(options=options)
             self.wait = WebDriverWait(self.driver, 10)
             
-            logger.info("Chrome driver setup successful with custom profile")
+            logger.info("Chrome driver setup successful with custom profile and proxy")
             return True
         except Exception as e:
             logger.error(f"Failed to setup Chrome driver: {e}")
