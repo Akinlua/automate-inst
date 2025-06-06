@@ -1036,7 +1036,7 @@ done
             return False
 
 # Global VNC manager instance
-vnc_manager = VNCServerManager(PROXY_SERVER)
+vnc_manager = VNCServerManager()
 
 def start_vnc_chrome_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
     """Start VNC session with Chrome for manual login"""

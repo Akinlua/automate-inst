@@ -232,7 +232,7 @@ class InstagramPoster:
             options.add_argument('--disable-blink-features=AutomationControlled')
 
             options.add_argument(f"--user-data-dir={self.chrome_profile_path}")
-            options.add_argument("--profile-directory=Default")
+            options.add_argument("--profile-directory=Profile 10")
             logger.info(f"Using V1 Chrome profile: {self.chrome_profile_path}")
 
             options.add_argument('--ignore-ssl-errors')
