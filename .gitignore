@@ -7,7 +7,7 @@ scheduler_errors.json
 scheduler_errors.log
 scheduler_settings.json
 old/
-# chrome_profile_instagram/
+chrome_profile_instagram/
 google-chrome-stable_current_amd64.deb
 
 # Instagram session files

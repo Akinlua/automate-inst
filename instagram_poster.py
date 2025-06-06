@@ -164,6 +164,8 @@ class InstagramPoster:
         chrome_options = Options()
         
         # Use the saved profile path (V1 compatibility) or Chrome's built-in profile system (V2)
+        print(f"chrome_profile_path: {self.chrome_profile_path}")
+        print(f"chrome_user_data_dir: {self.chrome_user_data_dir}")
         if self.chrome_profile_path and os.path.exists(self.chrome_profile_path):
             # V1 approach - custom profile directory
             chrome_options.add_argument(f"--user-data-dir={self.chrome_profile_path}")
