@@ -1234,7 +1234,10 @@ def start_vnc_session():
             profile_path = os.path.join(os.getcwd(), "chrome_profile_instagram")
             
         logger.info(f"Starting VNC session with profile: {profile_path}")
-        result = start_vnc_chrome_session(profile_path)
+        
+        # Run async function using asyncio.run()
+        import asyncio
+        result = asyncio.run(start_vnc_chrome_session(profile_path))
         
         if result['success']:
             logger.info("VNC session started successfully")
@@ -1260,7 +1263,9 @@ def get_vnc_session_status():
                 'error': 'VNC support not available'
             })
             
-        status = get_vnc_status()
+        # Run async function using asyncio.run()
+        import asyncio
+        status = asyncio.run(get_vnc_status())
         access_info = get_vnc_access_info()
         
         return jsonify({
@@ -1286,7 +1291,9 @@ def stop_vnc_session_endpoint():
                 'error': 'VNC support not available'
             }), 500
             
-        stop_vnc_session()
+        # Run async function using asyncio.run()
+        import asyncio
+        asyncio.run(stop_vnc_session())
         
         return jsonify({
             'success': True,

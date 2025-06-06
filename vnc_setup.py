@@ -740,8 +740,39 @@ done
             'web_url': f'http://localhost:{self.vnc_web_port}/vnc.html',
             'direct_vnc': f'localhost:{self.vnc_port}',
             'proxy_server': self.proxy_server,
-            'status': self.get_status()
+            'status': self._get_basic_status()
         }
+        
+    def _get_basic_status(self) -> Dict[str, Any]:
+        """Get basic VNC server status without async operations"""
+        status = {
+            'vnc_running': False,
+            'websockify_running': False,
+            'chrome_running': False,
+            'vnc_pid': self.vnc_pid,
+            'websockify_pid': self.websockify_pid,
+            'selenium_driver_active': bool(self.driver),
+            'proxy_enabled': bool(self.proxy_server),
+            'proxy_server': self.proxy_server
+        }
+        
+        try:
+            # Check VNC server
+            if self.vnc_pid and psutil.pid_exists(self.vnc_pid):
+                status['vnc_running'] = True
+                
+            # Check websockify
+            if self.websockify_pid and psutil.pid_exists(self.websockify_pid):
+                status['websockify_running'] = True
+                
+            # Check Chrome via selenium driver (basic check without async)
+            if self.driver:
+                status['chrome_running'] = True
+                
+        except Exception as e:
+            logger.warning(f"Error checking basic status: {e}")
+            
+        return status
         
     async def get_status(self) -> Dict[str, Any]:
         """Get current VNC server status"""
