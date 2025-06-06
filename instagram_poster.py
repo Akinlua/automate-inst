@@ -164,64 +164,64 @@ class InstagramPoster:
         chrome_options = Options()
         
         # Use the saved profile path (V1 compatibility) or Chrome's built-in profile system (V2)
-        print(f"chrome_profile_path: {self.chrome_profile_path}")
-        print(f"chrome_user_data_dir: {self.chrome_user_data_dir}")
-        if self.chrome_profile_path and os.path.exists(self.chrome_profile_path):
-            print("chrome_profile_path exists")
-            # V1 approach - custom profile directory
-            chrome_options.add_argument(f"--user-data-dir={self.chrome_profile_path}")
-            chrome_options.add_argument("--profile-directory=Default")
-            logger.info(f"Using V1 Chrome profile: {self.chrome_profile_path}")
-        else:
-            print("chrome_profile_path does not exist")
-            print(f"chrome_user_data_dir: {self.chrome_user_data_dir}")
-            # V2 approach - Chrome's built-in profile system
-            chrome_options.add_argument(f"--user-data-dir={self.chrome_user_data_dir}")
-            chrome_options.add_argument(f"--profile-directory={self.chrome_profile_name}")
-            logger.info(f"Using V2 Chrome profile: {self.chrome_profile_name}")
+        # print(f"chrome_profile_path: {self.chrome_profile_path}")
+        # print(f"chrome_user_data_dir: {self.chrome_user_data_dir}")
+        # if self.chrome_profile_path and os.path.exists(self.chrome_profile_path):
+        #     print("chrome_profile_path exists")
+        #     # V1 approach - custom profile directory
+        #     chrome_options.add_argument(f"--user-data-dir={self.chrome_profile_path}")
+        #     chrome_options.add_argument("--profile-directory=Default")
+        #     logger.info(f"Using V1 Chrome profile: {self.chrome_profile_path}")
+        # else:
+        #     print("chrome_profile_path does not exist")
+        #     print(f"chrome_user_data_dir: {self.chrome_user_data_dir}")
+        #     # V2 approach - Chrome's built-in profile system
+        #     chrome_options.add_argument(f"--user-data-dir={self.chrome_user_data_dir}")
+        #     chrome_options.add_argument(f"--profile-directory={self.chrome_profile_name}")
+        #     logger.info(f"Using V2 Chrome profile: {self.chrome_profile_name}")
         
-        # Essential options for automation
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        # # Essential options for automation
+        # chrome_options.add_argument("--no-sandbox")
+        # chrome_options.add_argument("--disable-dev-shm-usage")
+        # chrome_options.add_argument("--disable-blink-features=AutomationControlled")
         
-        # Disable various Chrome features that might cause issues
-        chrome_options.add_argument("--disable-extensions")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-first-run")
-        chrome_options.add_argument("--no-default-browser-check")
-        chrome_options.add_argument("--disable-default-apps")
-        chrome_options.add_argument("--disable-popup-blocking")
-        chrome_options.add_argument("--disable-translate")
-        chrome_options.add_argument("--disable-web-security")
-        chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+        # # Disable various Chrome features that might cause issues
+        # chrome_options.add_argument("--disable-extensions")
+        # chrome_options.add_argument("--disable-gpu")
+        # chrome_options.add_argument("--no-first-run")
+        # chrome_options.add_argument("--no-default-browser-check")
+        # chrome_options.add_argument("--disable-default-apps")
+        # chrome_options.add_argument("--disable-popup-blocking")
+        # chrome_options.add_argument("--disable-translate")
+        # chrome_options.add_argument("--disable-web-security")
+        # chrome_options.add_argument("--disable-features=VizDisplayCompositor")
         
-        # Preferences to avoid popups and notifications
-        prefs = {
-            "profile.default_content_setting_values.notifications": 2,
-            "profile.default_content_settings.popups": 0,
-            "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,
-            "profile.default_content_setting_values.automatic_downloads": 1,
-            "credentials_enable_service": False,
-            "profile.password_manager_enabled": False,
-        }
-        chrome_options.add_experimental_option("prefs", prefs)
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
-        
-        # Uncomment for headless mode
-        # chrome_options.add_argument("--headless")
-
-        # Essential anti-detection options
-        # chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # # Preferences to avoid popups and notifications
+        # prefs = {
+        #     "profile.default_content_setting_values.notifications": 2,
+        #     "profile.default_content_settings.popups": 0,
+        #     "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,
+        #     "profile.default_content_setting_values.automatic_downloads": 1,
+        #     "credentials_enable_service": False,
+        #     "profile.password_manager_enabled": False,
+        # }
+        # chrome_options.add_experimental_option("prefs", prefs)
+        # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         # chrome_options.add_experimental_option('useAutomationExtension', False)
-        # chrome_options.add_argument('--disable-web-security')
-        chrome_options.add_argument('--allow-running-insecure-content')
-        # chrome_options.add_argument('--disable-extensions')
+        
+        # # Uncomment for headless mode
+        # # chrome_options.add_argument("--headless")
 
-        # User agent
-        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        # # Essential anti-detection options
+        # # chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+        # # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # # chrome_options.add_experimental_option('useAutomationExtension', False)
+        # # chrome_options.add_argument('--disable-web-security')
+        # chrome_options.add_argument('--allow-running-insecure-content')
+        # # chrome_options.add_argument('--disable-extensions')
+
+        # # User agent
+        # chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
         
         try:
@@ -237,7 +237,7 @@ class InstagramPoster:
             options.add_argument('--disable-blink-features=AutomationControlled')
 
             options.add_argument(f"--user-data-dir={self.chrome_profile_path}")
-            options.add_argument("--profile-directory=Profile 10")
+            options.add_argument("--profile-directory=Default")
             logger.info(f"Using V1 Chrome profile: {self.chrome_profile_path}")
 
             options.add_argument('--ignore-ssl-errors')
