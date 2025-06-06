@@ -97,7 +97,7 @@ class ChromeProfileSetup:
             options.add_argument('--disable-blink-features=AutomationControlled')
 
             options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
-            # options.add_argument("--profile-directory=Default")
+            options.add_argument("--profile-directory=Default")
             logger.info(f"Using Chrome profile: {CUSTOM_PROFILE_PATH}")
 
             options.add_argument('--ignore-ssl-errors')
