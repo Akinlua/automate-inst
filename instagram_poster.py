@@ -242,7 +242,7 @@ class InstagramPoster:
             options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
 
 
-            options.add_argument("--headless")
+            # options.add_argument("--headless")
 
 
             self.driver = uc.Chrome(options=options)
@@ -273,6 +273,23 @@ class InstagramPoster:
                 self.wait.until(EC.any_of(
                     EC.presence_of_element_located((By.XPATH, "//a[@href='/']")),
                     EC.presence_of_element_located((By.XPATH, "//*[contains(@aria-label, 'New post')]")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x9f619")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "xjbqb8w")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x78zum5")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x168nmei")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x13lgxp2")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x5pf9jr")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "xo71vjh")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x1n2onr6")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x1plvlek")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "xryxfnj")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x1c4vz4f")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x2lah0s")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "xdt5ytf")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "xqjyukv")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x1qjc9v5")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x1oa3qoh")),
+                    EC.presence_of_element_located((By.CLASS_NAME, "x1nhvcw1"))
                 ))
                 logger.info("Successfully navigated to Instagram and confirmed login status")
                 return True

@@ -678,18 +678,39 @@ done
                     logger.error(f"Failed to import selenium-driverless after installation: {e2}")
                     return False
             
+            # Ensure display is set for VNC
+            os.environ['DISPLAY'] = self.vnc_display
+            logger.info(f"Set DISPLAY environment variable to: {self.vnc_display}")
+            
+            # Wait longer for VNC desktop to be fully ready
+            logger.info("Waiting for VNC desktop to be ready...")
+            await asyncio.sleep(10)
+            
             # Configure Chrome options with minimal flags
             options = webdriver.ChromeOptions()
             
             # Essential flags for VNC/container environment
-            # options.add_argument("--no-sandbox")
+            options.add_argument("--no-sandbox")
             options.add_argument("--disable-gpu")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--window-size=1920,1080")
-            # options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            
+            # Additional VNC-specific flags
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-plugins")
+            options.add_argument("--disable-images")
+            options.add_argument("--disable-web-security")
+            options.add_argument("--allow-running-insecure-content")
+            options.add_argument("--disable-features=VizDisplayCompositor")
+            
+            # Set user data directory (profile)
+            options.add_argument(f"--user-data-dir={profile_path}")
             
             # Minimal logging
             options.add_argument("--log-level=3")
+            options.add_argument("--silent")
+            options.add_argument("--disable-logging")
             
             # Set download preferences
             prefs = {
@@ -709,16 +730,42 @@ done
                 options.add_argument(f"--proxy-server={self.proxy_server}")
                 logger.info(f"Using proxy: {self.proxy_server}")
             
-            # Start Chrome with selenium-driverless
-            logger.info("Initializing selenium-driverless Chrome driver...")
-            self.driver = await webdriver.Chrome(options=options)
+            # Configure selenium-driverless with increased timeout
+            logger.info("Initializing selenium-driverless Chrome driver with extended timeout...")
             
-            # Navigate to Instagram
-            logger.info("Navigating to Instagram...")
-            await self.driver.get("https://www.instagram.com")
-            
-            logger.info("Chrome started successfully with selenium-driverless in VNC session")
-            return True
+            try:
+                # Start Chrome with selenium-driverless and increased timeout
+                self.driver = await webdriver.Chrome(
+                    options=options,
+                    max_ws_size=2**20,  # 1MB max websocket size
+                    host="127.0.0.1",
+                    port=None  # Let it choose a port
+                )
+                
+                logger.info("Chrome driver initialized, waiting for connection...")
+                await asyncio.sleep(5)
+                
+                # Test the connection with a simple command
+                logger.info("Testing Chrome connection...")
+                await self.driver.execute_script("return 'connected';")
+                logger.info("Chrome connection test successful")
+                
+                # Navigate to Instagram
+                logger.info("Navigating to Instagram...")
+                await self.driver.get("https://www.instagram.com")
+                
+                # Wait for page to load
+                await asyncio.sleep(5)
+                
+                logger.info("Chrome started successfully with selenium-driverless in VNC session")
+                return True
+                
+            except asyncio.TimeoutError:
+                logger.error("Timeout connecting to Chrome - this is likely due to VNC display issues")
+                logger.info("Attempting fallback approach...")
+                
+                # Try fallback approach with different options
+                return await self._start_selenium_fallback(profile_path, download_dir)
                 
         except Exception as e:
             logger.error(f"Failed to start selenium-driverless Chrome: {e}")
@@ -729,7 +776,50 @@ done
                     pass
                 self.driver = None
             return False
+    
+    async def _start_selenium_fallback(self, profile_path: str, download_dir: str) -> bool:
+        """Fallback method to start Chrome with different approach"""
+        try:
+            logger.info("Attempting fallback Chrome startup...")
             
+            from selenium_driverless import webdriver
+            
+            # Even more minimal options for fallback
+            options = webdriver.ChromeOptions()
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--headless=new")  # Try headless mode as fallback
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument(f"--user-data-dir={profile_path}")
+            
+            if self.proxy_server:
+                options.add_argument(f"--proxy-server={self.proxy_server}")
+            
+            # Start with minimal configuration
+            self.driver = await webdriver.Chrome(options=options)
+            
+            # Test connection
+            await self.driver.execute_script("return 'connected';")
+            logger.info("Fallback Chrome connection successful")
+            
+            # Navigate to Instagram
+            await self.driver.get("https://www.instagram.com")
+            await asyncio.sleep(3)
+            
+            logger.info("Fallback Chrome startup successful")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Fallback Chrome startup also failed: {e}")
+            if self.driver:
+                try:
+                    await self.driver.quit()
+                except:
+                    pass
+                self.driver = None
+            return False
+
     def get_access_info(self) -> Dict[str, Any]:
         """Get VNC access information"""
         return {
