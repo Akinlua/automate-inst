@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-VNC Server Setup for Remote Chrome Browser Access
-This module sets up a VNC server to allow remote access to Chrome browser
-for manual Instagram login with anti-detection measures and proxy support.
+Selenium Driverless Setup for Remote Chrome Browser Access
+This module sets up a headless Chrome browser using Selenium WebDriver
+for automated Instagram interaction with anti-detection measures and proxy support.
 """
 
 import os
@@ -18,37 +18,32 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 import json
 
+# Selenium imports
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("vnc_setup.log"),
+        logging.FileHandler("selenium_setup.log"),
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger("vnc_setup")
+logger = logging.getLogger("selenium_setup")
 
 PROXY_SERVER = "http://ng.decodo.com:42032"
 
-class VNCServerManager:
+class SeleniumBrowserManager:
     def __init__(self, proxy_server: Optional[str] = None):
-        self.vnc_display = ":1"
-        self.vnc_port = 5901
-        self.vnc_web_port = 6080
-        self.vnc_password = "instagram123"  # Default password
-        self.vnc_pid = None
-        self.websockify_pid = None
-        self.chrome_pid = None
-        self.xvfb_pid = None
-        
-        # Proxy configuration
-        self.proxy_server = proxy_server
-        
-        # VNC configuration
-        self.vnc_dir = Path.home() / ".vnc"
-        self.xstartup_file = self.vnc_dir / "xstartup"
-        self.passwd_file = self.vnc_dir / "passwd"
+        self.proxy_server = None
+        self.driver = None
+        self.profile_path = None
         
     def set_proxy(self, proxy_server: str):
         """Set proxy server for Chrome"""
@@ -56,67 +51,44 @@ class VNCServerManager:
         logger.info(f"Proxy server set to: {proxy_server}")
         
     def check_system_compatibility(self) -> bool:
-        """Check if the system supports VNC"""
+        """Check if the system supports Chrome and Selenium"""
         try:
-            # Check if we're on Linux
-            if os.name != 'posix' or 'linux' not in sys.platform.lower():
-                logger.error("VNC setup is only supported on Linux systems")
+            # Check for Chrome installation
+            chrome_executables = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium']
+            chrome_found = False
+            
+            for executable in chrome_executables:
+                try:
+                    result = subprocess.run([executable, '--version'], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        logger.info(f"Found Chrome: {executable} - {result.stdout.strip()}")
+                        chrome_found = True
+                        break
+                except FileNotFoundError:
+                    continue
+                    
+            if not chrome_found:
+                logger.error("Chrome browser not found")
                 return False
-                
-            # Check if running as root or in container
-            if os.geteuid() == 0:
-                logger.info("Running as root - VNC setup should work")
                 
             return True
         except Exception as e:
             logger.error(f"System compatibility check failed: {e}")
             return False
             
-    def install_vnc_dependencies(self) -> bool:
-        """Install VNC server and premium desktop environment"""
+    def install_dependencies(self) -> bool:
+        """Install Chrome and Selenium dependencies"""
         try:
-            logger.info("Installing VNC dependencies and desktop environment...")
+            logger.info("Installing Chrome and Selenium dependencies...")
             
             # Update package list
             subprocess.run(['apt-get', 'update'], check=True, capture_output=True)
             
-            # Install comprehensive desktop environment and VNC
+            # Install Chrome and dependencies
             packages = [
-                # VNC servers
-                'tigervnc-standalone-server',
-                'tigervnc-common',
-                
-                # Desktop environment - XFCE (lightweight but full-featured)
-                'xfce4',
-                'xfce4-goodies',
-                'xfce4-terminal',
-                
-                # Essential X11 components
-                'xserver-xorg-core',
-                'xfonts-base',
-                'xfonts-75dpi',
-                'xfonts-100dpi',
-                'fonts-liberation',
-                'fonts-dejavu-core',
-                'fonts-noto',
-                
-                # Web access
-                'websockify',
-                'python3-websockify',
-                
-                # Audio support
-                'pulseaudio',
-                'pavucontrol',
-                
-                # Additional tools
-                'dbus-x11',
-                'at-spi2-core',
-                'firefox',  # Standard Firefox instead of firefox-esr
-                'thunar',
-                'curl',
                 'wget',
-                
-                # Chrome/Chromium requirements
+                'curl',
+                'unzip',
                 'libnss3',
                 'libatk-bridge2.0-0',
                 'libdrm2',
@@ -125,948 +97,329 @@ class VNCServerManager:
                 'libxrandr2',
                 'libgbm1',
                 'libxss1',
-                'libasound2-dev'  # Development package for audio
+                'libasound2'
             ]
             
-            # Install packages in batches to avoid issues
-            batch_size = 10
-            for i in range(0, len(packages), batch_size):
-                batch = packages[i:i + batch_size]
-                cmd = ['apt-get', 'install', '-y'] + batch
-                try:
-                    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-                    logger.info(f"Successfully installed batch: {', '.join(batch)}")
-                except subprocess.CalledProcessError as e:
-                    logger.warning(f"Some packages in batch failed: {e.stderr}")
-                    # Try installing packages one by one
-                    for package in batch:
-                        try:
-                            subprocess.run(['apt-get', 'install', '-y', package], check=True, capture_output=True)
-                            logger.info(f"Successfully installed: {package}")
-                        except subprocess.CalledProcessError:
-                            logger.warning(f"Failed to install: {package} - continuing anyway")
+            # Install packages
+            subprocess.run(['apt-get', 'install', '-y'] + packages, check=True, capture_output=True)
             
-            # Install noVNC separately
-            self._install_novnc()
+            # Install Chrome if not present
+            self._install_chrome()
             
-            logger.info("VNC dependencies and desktop environment installed successfully")
+            # Install ChromeDriver
+            self._install_chromedriver()
+            
+            logger.info("Dependencies installed successfully")
             return True
             
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to install VNC dependencies: {e}")
-            logger.error(f"Error output: {e.stderr}")
+            logger.error(f"Failed to install dependencies: {e}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error installing dependencies: {e}")
             return False
     
-    def _install_novnc(self):
-        """Install noVNC for web-based VNC access"""
+    def _install_chrome(self):
+        """Install Google Chrome"""
         try:
-            logger.info("Installing noVNC...")
+            logger.info("Installing Google Chrome...")
             
-            # Create noVNC directory
-            novnc_dir = Path("/usr/share/novnc")
-            novnc_dir.mkdir(parents=True, exist_ok=True)
+            # Download Chrome
+            subprocess.run([
+                'wget', '-q', '-O', '/tmp/google-chrome.deb',
+                'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb'
+            ], check=True)
             
-            # Download and install noVNC if not present
-            if not (novnc_dir / "vnc.html").exists():
-                import tempfile
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    temp_path = Path(temp_dir)
-                    
-                    # Download noVNC
-                    subprocess.run([
-                        'wget', '-q', 
-                        'https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz'
-                    ], cwd=temp_path, check=True)
-                    
-                    # Extract
-                    subprocess.run([
-                        'tar', '-xzf', 'v1.4.0.tar.gz'
-                    ], cwd=temp_path, check=True)
-                    
-                    # Copy to destination using Python instead of shell command
-                    source_dir = temp_path / "noVNC-1.4.0"
-                    if source_dir.exists():
-                        import shutil
-                        for item in source_dir.iterdir():
-                            dest_item = novnc_dir / item.name
-                            if item.is_file():
-                                shutil.copy2(item, dest_item)
-                            elif item.is_dir():
-                                shutil.copytree(item, dest_item, dirs_exist_ok=True)
-                        logger.info("noVNC files copied successfully")
-                    else:
-                        logger.error(f"Source directory not found: {source_dir}")
-                        
-                logger.info("noVNC installed successfully")
-            else:
-                logger.info("noVNC already installed")
-                
-        except Exception as e:
-            logger.warning(f"Failed to install noVNC: {e}")
-            # Try alternative installation method
-            self._install_novnc_fallback()
+            # Install Chrome
+            subprocess.run(['dpkg', '-i', '/tmp/google-chrome.deb'], capture_output=True)
+            subprocess.run(['apt-get', 'install', '-f', '-y'], capture_output=True)
             
-    def _install_novnc_fallback(self):
-        """Fallback method to install noVNC using git or package manager"""
-        try:
-            logger.info("Trying fallback noVNC installation...")
+            # Clean up
+            os.remove('/tmp/google-chrome.deb')
             
-            # Try installing noVNC via apt first
-            try:
-                subprocess.run(['apt-get', 'install', '-y', 'novnc'], check=True, capture_output=True)
-                logger.info("noVNC installed via package manager")
-                return
-            except subprocess.CalledProcessError:
-                logger.info("Package manager installation failed, trying git...")
-            
-            # Try git clone as fallback
-            novnc_dir = Path("/usr/share/novnc")
-            novnc_dir.mkdir(parents=True, exist_ok=True)
-            
-            try:
-                subprocess.run([
-                    'git', 'clone', 'https://github.com/novnc/noVNC.git', str(novnc_dir)
-                ], check=True, capture_output=True)
-                logger.info("noVNC installed via git clone")
-                return
-            except subprocess.CalledProcessError:
-                logger.info("Git installation failed, creating minimal web interface...")
-            
-            # Create a minimal web interface as last resort
-            self._create_minimal_vnc_interface()
+            logger.info("Google Chrome installed successfully")
             
         except Exception as e:
-            logger.warning(f"All noVNC installation methods failed: {e}")
-            self._create_minimal_vnc_interface()
+            logger.warning(f"Chrome installation had issues: {e}")
             
-    def _create_minimal_vnc_interface(self):
-        """Create a minimal VNC web interface"""
+    def _install_chromedriver(self):
+        """Install ChromeDriver"""
         try:
-            logger.info("Creating minimal VNC web interface...")
+            logger.info("Installing ChromeDriver...")
             
-            novnc_dir = Path("/usr/share/novnc")
-            novnc_dir.mkdir(parents=True, exist_ok=True)
+            # Get Chrome version
+            chrome_version = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True)
+            version = chrome_version.stdout.split()[2].split('.')[0]
             
-            # Create a simple HTML redirect page
-            html_content = """<!DOCTYPE html>
-<html>
-<head>
-    <title>VNC Access - Instagram Auto Poster</title>
-    <meta charset="utf-8">
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .status { margin: 20px 0; }
-        .success { color: green; }
-        .info { color: blue; }
-        .warning { color: orange; }
-        button {
-            background: #007cba;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px;
-        }
-        button:hover { background: #005a87; }
-        .code {
-            background: #f0f0f0;
-            padding: 10px;
-            border-radius: 5px;
-            font-family: monospace;
-            margin: 10px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 VNC Access - Instagram Auto Poster</h1>
-        
-        <div class="status success">
-            ✅ VNC Server is Running
-        </div>
-        
-        <p>Your VNC server is active and ready for use. Since the full noVNC web client isn't available, you can connect using:</p>
-        
-        <h3>🔗 Connection Methods:</h3>
-        
-        <div class="info">
-            <strong>Option 1: VNC Client (Recommended)</strong><br>
-            Download a VNC client like RealVNC, TightVNC, or TigerVNC Viewer<br>
-            <div class="code">
-                Server: localhost:5901<br>
-                Password: instagram123
-            </div>
-        </div>
-        
-        <div class="info">
-            <strong>Option 2: SSH Tunnel + VNC</strong><br>
-            For remote access, create an SSH tunnel:<br>
-            <div class="code">
-                ssh -L 5901:localhost:5901 user@your-server<br>
-                Then connect VNC client to localhost:5901
-            </div>
-        </div>
-        
-        <div class="warning">
-            <strong>Option 3: Install noVNC manually</strong><br>
-            <div class="code">
-                sudo apt-get install novnc<br>
-                # or<br>
-                cd /usr/share && sudo git clone https://github.com/novnc/noVNC.git novnc
-            </div>
-            Then refresh this page.
-        </div>
-        
-        <h3>📋 Connection Details:</h3>
-        <div class="code">
-            VNC Display: :1<br>
-            VNC Port: 5901<br>
-            Web Port: 6080<br>
-            Password: instagram123
-        </div>
-        
-        <p>Chrome should be running automatically in the VNC session with Instagram login page loaded.</p>
-        
-        <button onclick="checkNoVNC()">🔄 Check for noVNC</button>
-        <button onclick="window.location.reload()">↻ Refresh Page</button>
-    </div>
-    
-    <script>
-        function checkNoVNC() {
-            fetch('/vnc_lite.html')
-                .then(response => {
-                    if (response.ok) {
-                        window.location.href = '/vnc_lite.html';
-                    } else {
-                        alert('noVNC not found. Please install manually or use a VNC client.');
-                    }
-                })
-                .catch(() => {
-                    alert('noVNC not available. Please use a VNC client to connect.');
-                });
-        }
-        
-        // Auto-check for noVNC every 30 seconds
-        setInterval(() => {
-            fetch('/vnc_lite.html')
-                .then(response => {
-                    if (response.ok) {
-                        document.body.innerHTML = '<div style="text-align:center;padding:50px;"><h2>noVNC Available!</h2><p>Redirecting...</p></div>';
-                        setTimeout(() => window.location.href = '/vnc_lite.html', 2000);
-                    }
-                })
-                .catch(() => {});
-        }, 30000);
-    </script>
-</body>
-</html>"""
+            # Download ChromeDriver
+            subprocess.run([
+                'wget', '-q', '-O', '/tmp/chromedriver.zip',
+                f'https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{version}/chromedriver_linux64.zip'
+            ], check=True)
             
-            # Write the HTML file
-            with open(novnc_dir / "vnc.html", 'w') as f:
-                f.write(html_content)
-                
-            # Also create index.html as fallback
-            with open(novnc_dir / "index.html", 'w') as f:
-                f.write(html_content)
-                
-            logger.info("Minimal VNC web interface created")
+            # Extract and install
+            subprocess.run(['unzip', '-o', '/tmp/chromedriver.zip', '-d', '/tmp/'], check=True)
+            subprocess.run(['mv', '/tmp/chromedriver', '/usr/local/bin/'], check=True)
+            subprocess.run(['chmod', '+x', '/usr/local/bin/chromedriver'], check=True)
+            
+            # Clean up
+            os.remove('/tmp/chromedriver.zip')
+            
+            logger.info("ChromeDriver installed successfully")
             
         except Exception as e:
-            logger.error(f"Failed to create minimal web interface: {e}")
+            logger.warning(f"ChromeDriver installation had issues: {e}")
             
-    def setup_vnc_server(self) -> bool:
-        """Setup and configure VNC server with proper desktop"""
+    def setup_chrome_profile(self, profile_path: str):
+        """Setup Chrome profile with minimal configuration"""
         try:
-            logger.info("Setting up VNC server with XFCE desktop...")
+            self.profile_path = profile_path
             
-            # Create VNC directory
-            self.vnc_dir.mkdir(exist_ok=True, mode=0o700)
+            # Create profile directory
+            os.makedirs(profile_path, exist_ok=True)
             
-            # Setup VNC password
-            self._setup_vnc_password()
+            # Create downloads directory
+            download_dir = os.path.abspath(os.path.join(os.path.dirname(profile_path), "downloads"))
+            os.makedirs(download_dir, exist_ok=True)
             
-            # Create xstartup script for XFCE
-            self._create_xfce_xstartup_script()
+            logger.info(f"Chrome profile setup at: {profile_path}")
+            logger.info(f"Downloads directory: {download_dir}")
             
-            # Kill any existing VNC servers
-            self._kill_existing_vnc_servers()
+            return download_dir
             
-            logger.info("VNC server setup completed")
+        except Exception as e:
+            logger.error(f"Failed to setup Chrome profile: {e}")
+            return None
+            
+    def create_chrome_driver(self, profile_path: str) -> bool:
+        """Create Chrome WebDriver with minimal flags"""
+        try:
+            logger.info("Creating Chrome WebDriver with driverless configuration...")
+            
+            # Setup profile and downloads
+            download_dir = self.setup_chrome_profile(profile_path)
+            if not download_dir:
+                return False
+            
+            # Chrome options with minimal necessary flags
+            options = Options()
+            options.add_argument("--headless=new")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--log-level=3")  # Minimal logging
+            
+            # Use the custom profile directory (commented out as per original)
+            # options.add_argument(f"--user-data-dir={profile_path}")
+            
+            # Add proxy if configured
+            if self.proxy_server:
+                if self.proxy_server.startswith('socks'):
+                    options.add_argument(f'--proxy-server={self.proxy_server}')
+                elif self.proxy_server.startswith('http'):
+                    options.add_argument(f'--proxy-server={self.proxy_server}')
+                else:
+                    options.add_argument(f'--proxy-server=http://{self.proxy_server}')
+                logger.info(f"Using proxy: {self.proxy_server}")
+            
+            # Set download preferences
+            prefs = {
+                "download.default_directory": download_dir.replace("\\", "/"),
+                "download.prompt_for_download": False,
+                "download.directory_upgrade": True,
+                "safebrowsing.enabled": False,
+                "plugins.always_open_pdf_externally": True,
+                "browser.download.folderList": 2,
+                "browser.helperApps.neverAsk.saveToDisk": "application/pdf,application/x-pdf,application/octet-stream,text/plain,text/html",
+                "browser.download.manager.showWhenStarting": False
+            }
+            options.add_experimental_option("prefs", prefs)
+            
+            # Create WebDriver
+            service = Service()  # Use default ChromeDriver path
+            self.driver = webdriver.Chrome(service=service, options=options)
+            
+            logger.info("Chrome WebDriver created successfully")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to setup VNC server: {e}")
+            logger.error(f"Failed to create Chrome WebDriver: {e}")
             return False
             
-    def _setup_vnc_password(self):
-        """Setup VNC password"""
+    def navigate_to_instagram(self) -> bool:
+        """Navigate to Instagram login page"""
         try:
-            # Use vncpasswd to set password
-            process = subprocess.Popen(
-                ['vncpasswd', str(self.passwd_file)],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            # Send password twice (password and confirmation)
-            stdout, stderr = process.communicate(f"{self.vnc_password}\n{self.vnc_password}\nn\n")
-            
-            if process.returncode == 0:
-                logger.info("VNC password set successfully")
-            else:
-                logger.warning(f"VNC password setup had issues: {stderr}")
-                
-        except Exception as e:
-            logger.error(f"Failed to setup VNC password: {e}")
-            
-    def _create_xfce_xstartup_script(self):
-        """Create xstartup script for XFCE desktop"""
-        xstartup_content = """#!/bin/bash
-
-# Set environment variables
-export XKL_XMODMAP_DISABLE=1
-export XDG_CURRENT_DESKTOP="XFCE"
-export XDG_SESSION_DESKTOP="xfce"
-export XDG_SESSION_TYPE="x11"
-export DESKTOP_SESSION="xfce"
-
-# Load X resources
-[ -r $HOME/.Xresources ] && xrdb $HOME/.Xresources
-
-# Set background
-xsetroot -solid grey
-
-# Start D-Bus
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    eval $(dbus-launch --sh-syntax --exit-with-session)
-fi
-
-# Start PulseAudio
-pulseaudio --start --exit-idle-time=-1 &
-
-# Start XFCE desktop environment
-startxfce4 &
-
-# Keep VNC session alive
-while true; do
-    sleep 3600
-done
-"""
-        
-        try:
-            with open(self.xstartup_file, 'w') as f:
-                f.write(xstartup_content)
-            
-            # Make executable
-            os.chmod(self.xstartup_file, 0o755)
-            logger.info("Created XFCE xstartup script")
-            
-        except Exception as e:
-            logger.error(f"Failed to create xstartup script: {e}")
-            
-    def _kill_existing_vnc_servers(self):
-        """Kill any existing VNC servers"""
-        try:
-            # Kill VNC servers
-            subprocess.run(['pkill', '-f', 'Xvnc'], capture_output=True)
-            subprocess.run(['pkill', '-f', 'Xtigervnc'], capture_output=True)
-            subprocess.run(['pkill', '-f', 'vncserver'], capture_output=True)
-            subprocess.run(['pkill', '-f', 'websockify'], capture_output=True)
-            subprocess.run(['pkill', '-f', 'Xvfb'], capture_output=True)
-            
-            # Wait a moment
-            time.sleep(3)
-            
-            logger.info("Killed existing VNC servers")
-            
-        except Exception as e:
-            logger.warning(f"Error killing existing VNC servers: {e}")
-            
-    def start_vnc_server(self) -> bool:
-        """Start TigerVNC server with XFCE desktop"""
-        try:
-            logger.info(f"Starting TigerVNC server on display {self.vnc_display}...")
-            
-            # Kill any existing server on this display
-            subprocess.run(['vncserver', '-kill', self.vnc_display], capture_output=True)
-            time.sleep(2)
-            
-            # Start TigerVNC server
-            cmd = [
-                'vncserver',
-                self.vnc_display,
-                '-geometry', '1920x1080',
-                '-depth', '24',
-                '-localhost', 'no',
-                '-SecurityTypes', 'VncAuth'
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            
-            if result.returncode == 0:
-                logger.info("TigerVNC server started successfully")
-                
-                # Wait for server to start
-                time.sleep(5)
-                
-                # Verify the server is running
-                ps_result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
-                if f'Xtigervnc {self.vnc_display}' in ps_result.stdout or f'Xvnc {self.vnc_display}' in ps_result.stdout:
-                    self._find_vnc_pid()
-                    self._start_websockify()
-                    return True
-                else:
-                    logger.error("VNC server failed to start properly")
-                    return False
-            else:
-                logger.error(f"Failed to start VNC server: {result.stderr}")
+            if not self.driver:
+                logger.error("WebDriver not initialized")
                 return False
                 
+            logger.info("Navigating to Instagram...")
+            self.driver.get("https://www.instagram.com")
+            
+            # Wait for page to load
+            wait = WebDriverWait(self.driver, 10)
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            
+            logger.info(f"Successfully navigated to Instagram. Current URL: {self.driver.current_url}")
+            return True
+            
         except Exception as e:
-            logger.error(f"Error starting VNC server: {e}")
+            logger.error(f"Failed to navigate to Instagram: {e}")
             return False
             
-    def _find_vnc_pid(self):
-        """Find VNC server process ID"""
-        try:
-            for process in psutil.process_iter(['pid', 'name', 'cmdline']):
-                if ('Xvnc' in process.info['name'] or 'Xtigervnc' in process.info['name']) and self.vnc_display in ' '.join(process.info['cmdline']):
-                    self.vnc_pid = process.info['pid']
-                    logger.info(f"Found VNC server PID: {self.vnc_pid}")
-                    break
-        except Exception as e:
-            logger.warning(f"Could not find VNC PID: {e}")
-            
-    def _start_websockify(self) -> bool:
-        """Start websockify for web-based VNC access"""
-        try:
-            logger.info(f"Starting websockify on port {self.vnc_web_port}...")
-            
-            # Start websockify in background
-            novnc_path = "/usr/share/novnc/"
-            if Path(novnc_path).exists():
-                cmd = [
-                    'websockify',
-                    '--web', novnc_path,
-                    f'{self.vnc_web_port}',
-                    f'localhost:{self.vnc_port}'
-                ]
-            else:
-                # Fallback without web directory
-                cmd = [
-                    'websockify',
-                    f'{self.vnc_web_port}',
-                    f'localhost:{self.vnc_port}'
-                ]
-            
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.websockify_pid = process.pid
-            logger.info(f"Websockify started with PID: {self.websockify_pid}")
-            
-            time.sleep(2)
-            
-            if process.poll() is None:
-                logger.info(f"Websockify running successfully on port {self.vnc_web_port}")
-                return True
-            else:
-                logger.error("Websockify failed to start properly")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Failed to start websockify: {e}")
-            return False
-
-    def _clean_chrome_profile_completely(self, profile_path: str):
-        """Completely remove and recreate Chrome profile directory"""
-        try:
-            # If profile directory exists, remove it completely
-            if os.path.exists(profile_path):
-                logger.info(f"Removing existing Chrome profile: {profile_path}")
-                shutil.rmtree(profile_path, ignore_errors=True)
-                time.sleep(1)  # Give filesystem time to complete
-            
-            # Create fresh profile directory
-            os.makedirs(profile_path, exist_ok=True)
-            logger.info(f"Created fresh Chrome profile directory: {profile_path}")
-            
-        except Exception as e:
-            logger.error(f"Failed to clean Chrome profile: {e}")
-
-    def _create_anti_detection_chrome_profile(self, profile_path: str):
-        """Create Chrome profile with anti-detection measures"""
-        try:
-            # Ensure profile directory exists
-            os.makedirs(profile_path, exist_ok=True)
-            
-            # Create realistic Chrome preferences for stealth
-            prefs = {
-                "profile": {
-                    "default_content_setting_values": {
-                        "notifications": 1,  # Allow notifications (more realistic)
-                        "geolocation": 1,    # Allow location (more realistic)
-                        "media_stream": 1    # Allow camera/mic (more realistic)
-                    },
-                    "content_settings": {
-                        "exceptions": {
-                            "notifications": {
-                                "https://www.instagram.com,*": {
-                                    "setting": 1
-                                }
-                            }
-                        }
-                    }
-                },
-                "extensions": {
-                    "ui": {
-                        "developer_mode": True,  # Enable developer mode for extension management
-                        "chrome_apps_enabled": True
-                    },
-                    "settings": {
-                        "extensions_enabled": True
-                    },
-                    "alerts": {
-                        "initialized": True
-                    }
-                },
-                "security": {
-                    "ask_for_password": True
-                },
-                "credentials_enable_service": True,
-                "password_manager_enabled": True,
-                "autofill": {
-                    "enabled": True,
-                    "profile_enabled": True
-                },
-                "dns_prefetching": {
-                    "enabled": True
-                },
-                "safebrowsing": {
-                    "enabled": True,
-                    "enhanced": False
-                },
-                "search": {
-                    "suggest_enabled": True
-                },
-                "alternate_error_pages": {
-                    "enabled": True
-                },
-                "hardware": {
-                    "audio_capture_enabled": True,
-                    "video_capture_enabled": True
-                },
-                "browser": {
-                    "show_home_button": True,
-                    "check_default_browser": False
-                },
-                "bookmark_bar": {
-                    "show_on_all_tabs": False
-                },
-                "sync": {
-                    "suppress_start": False
-                },
-                "first_run_tabs": [
-                    "https://www.google.com/"
-                ],
-                "homepage": "https://www.google.com/",
-                "homepage_is_newtabpage": False,
-                "session": {
-                    "restore_on_startup": 1
-                },
-                # Extension-related preferences
-                "privacy": {
-                    "extension_can_load_protected_media": True
-                },
-                "webkit": {
-                    "webprefs": {
-                        "plugins_enabled": True
-                    }
-                }
-            }
-            
-            # Write preferences
-            prefs_file = os.path.join(profile_path, "Preferences")
-            with open(prefs_file, 'w') as f:
-                json.dump(prefs, f, indent=2)
-            
-            # Create Local State file to make profile look established
-            local_state = {
-                "profile": {
-                    "info_cache": {
-                        "Default": {
-                            "active_time": time.time(),
-                            "is_using_default_avatar": True,
-                            "is_using_default_name": True,
-                            "name": "Person 1"
-                        }
-                    },
-                    "last_used": "Default",
-                    "last_active_profiles": ["Default"]
-                }
-            }
-            
-            local_state_file = os.path.join(profile_path, "Local State")
-            with open(local_state_file, 'w') as f:
-                json.dump(local_state, f, indent=2)
-                
-            logger.info("Created anti-detection Chrome profile")
-            
-        except Exception as e:
-            logger.warning(f"Failed to configure Chrome profile: {e}")
-            
-    def start_chrome_in_vnc(self, profile_path: str) -> bool:
-        """Start Chrome browser inside VNC session with anti-detection"""
-        try:
-            logger.info("Starting Chrome browser in VNC session with anti-detection measures...")
-            
-            # Set display for Chrome
-            env = os.environ.copy()
-            env['DISPLAY'] = self.vnc_display
-            
-            # Only create profile if it doesn't exist (preserve existing logged-in profiles)
-            if not os.path.exists(profile_path):
-                logger.info(f"Creating new Chrome profile at: {profile_path}")
-                self._create_anti_detection_chrome_profile(profile_path)
-            else:
-                logger.info(f"Using existing Chrome profile at: {profile_path}")
-            
-            # Wait for desktop to be ready
-            time.sleep(5)
-            
-            # Start Chrome with anti-detection flags
-            return self._start_stealth_chrome(profile_path, env)
-                
-        except Exception as e:
-            logger.error(f"Failed to start Chrome in VNC: {e}")
-            return False
-    
-    def _start_stealth_chrome(self, profile_path: str, env: dict) -> bool:
-        """Start Chrome with comprehensive anti-detection measures and proxy support"""
-        try:
-            logger.info("Starting Chrome with stealth configuration and proxy support...")
-            
-            # Comprehensive anti-detection Chrome flags
-            chrome_cmd = [
-                'google-chrome',
-                
-                # Essential flags for VNC/container
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                
-                # Anti-detection flags
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=VizDisplayCompositor',
-                '--disable-plugins',
-                '--disable-default-apps',
-                '--disable-component-extensions-with-background-pages',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-field-trial-config',
-                '--disable-back-forward-cache',
-                '--disable-ipc-flooding-protection',
-                
-                # Make it look more human
-                '--no-first-run',
-                '--no-default-browser-check',
-                '--disable-translate',
-                '--disable-features=TranslateUI',
-                '--disable-sync',
-                '--disable-background-networking',
-                '--disable-features=MediaRouter',
-                '--disable-print-preview',
-                '--disable-features=VizServiceDisplayCompositor',
-                
-                # Extension-friendly flags
-                '--enable-extensions',
-                '--load-extension-enable',
-                '--extensions-on-chrome-urls',
-                
-                # User agent and window management
-                '--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-                '--window-size=1920,1080',
-                '--start-maximized',
-                '--disable-infobars',
-                '--disable-notifications',
-                
-                # Profile and user data
-                f'--user-data-dir={profile_path}',
-                '--profile-directory=Default'
-            ]
-            
-            # Add proxy configuration if provided
-            if self.proxy_server:
-                if self.proxy_server.startswith('socks'):
-                    chrome_cmd.append(f'--proxy-server={self.proxy_server}')
-                    logger.info(f"Using SOCKS proxy: {self.proxy_server}")
-                elif self.proxy_server.startswith('http'):
-                    chrome_cmd.append(f'--proxy-server={self.proxy_server}')
-                    logger.info(f"Using HTTP proxy: {self.proxy_server}")
-                else:
-                    # Assume HTTP if no protocol specified
-                    chrome_cmd.append(f'--proxy-server=http://{self.proxy_server}')
-                    logger.info(f"Using HTTP proxy: http://{self.proxy_server}")
-            
-            # Add target URL
-            chrome_cmd.append('https://www.instagram.com')
-            
-            # Try different Chrome executables
-            chrome_executables = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium']
-            
-            process = None
-            for executable in chrome_executables:
-                try:
-                    chrome_cmd[0] = executable
-                    logger.info(f"Trying Chrome executable: {executable}")
-                    process = subprocess.Popen(chrome_cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    break
-                except FileNotFoundError:
-                    logger.warning(f"Chrome executable not found: {executable}")
-                    continue
-            
-            if process is None:
-                logger.error("No Chrome executable found")
-                return False
-            
-            self.chrome_pid = process.pid
-            logger.info(f"Chrome started with PID: {self.chrome_pid}")
-            
-            # Give Chrome time to start and load
-            time.sleep(10)
-            
-            # Check if Chrome is still running
-            if process.poll() is None:
-                logger.info("Chrome started successfully in VNC session")
-                
-                # Inject anti-detection JavaScript if possible
-                self._inject_anti_detection_scripts(env)
-                
-                return True
-            else:
-                logger.error("Chrome failed to start properly")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Failed to start stealth Chrome: {e}")
-            return False
-
-    def _inject_anti_detection_scripts(self, env: dict):
-        """Inject anti-detection JavaScript via developer tools if possible"""
-        try:
-            # This is a placeholder for potential future enhancement
-            # In practice, anti-detection is better handled by the Chrome flags
-            # and profile configuration we're already using
-            logger.info("Anti-detection measures applied via Chrome configuration")
-            
-        except Exception as e:
-            logger.warning(f"Could not inject anti-detection scripts: {e}")
-            
-    def get_access_info(self) -> Dict[str, Any]:
-        """Get VNC access information"""
-        return {
-            'vnc_display': self.vnc_display,
-            'vnc_port': self.vnc_port,
-            'vnc_web_port': self.vnc_web_port,
-            'vnc_password': self.vnc_password,
-            'web_url': f'http://localhost:{self.vnc_web_port}/vnc.html',
-            'direct_vnc': f'localhost:{self.vnc_port}',
-            'proxy_server': self.proxy_server,
-            'status': self.get_status()
-        }
-        
     def get_status(self) -> Dict[str, Any]:
-        """Get current VNC server status"""
+        """Get current browser status"""
         status = {
-            'vnc_running': False,
-            'websockify_running': False,
-            'chrome_running': False,
-            'vnc_pid': self.vnc_pid,
-            'websockify_pid': self.websockify_pid,
-            'chrome_pid': self.chrome_pid,
+            'driver_running': False,
+            'current_url': None,
+            'page_title': None,
             'proxy_enabled': bool(self.proxy_server),
-            'proxy_server': self.proxy_server
+            'proxy_server': self.proxy_server,
+            'profile_path': self.profile_path
         }
         
         try:
-            # Check VNC server
-            if self.vnc_pid and psutil.pid_exists(self.vnc_pid):
-                status['vnc_running'] = True
-                
-            # Check websockify
-            if self.websockify_pid and psutil.pid_exists(self.websockify_pid):
-                status['websockify_running'] = True
-                
-            # Check Chrome
-            if self.chrome_pid and psutil.pid_exists(self.chrome_pid):
-                status['chrome_running'] = True
-                
+            if self.driver:
+                status['driver_running'] = True
+                status['current_url'] = self.driver.current_url
+                status['page_title'] = self.driver.title
         except Exception as e:
-            logger.warning(f"Error checking status: {e}")
+            logger.warning(f"Error checking driver status: {e}")
             
         return status
         
-    def stop_vnc_server(self):
-        """Stop VNC server and related processes"""
+    def get_access_info(self) -> Dict[str, Any]:
+        """Get browser access information"""
+        return {
+            'type': 'selenium_headless',
+            'proxy_server': self.proxy_server,
+            'profile_path': self.profile_path,
+            'status': self.get_status(),
+            'message': 'Headless Chrome browser running with Selenium'
+        }
+        
+    def close_browser(self):
+        """Close the browser"""
         try:
-            logger.info("Stopping VNC server...")
+            if self.driver:
+                self.driver.quit()
+                self.driver = None
+                logger.info("Browser closed")
+        except Exception as e:
+            logger.error(f"Error closing browser: {e}")
             
-            # Stop Chrome process
-            if self.chrome_pid:
-                try:
-                    os.kill(self.chrome_pid, signal.SIGTERM)
-                    logger.info("Chrome process terminated")
-                except ProcessLookupError:
-                    pass
-                    
-            # Stop websockify
-            if self.websockify_pid:
-                try:
-                    os.kill(self.websockify_pid, signal.SIGTERM)
-                    logger.info("Websockify process terminated")
-                except ProcessLookupError:
-                    pass
-                    
-            # Stop VNC server
-            subprocess.run(['vncserver', '-kill', self.vnc_display], capture_output=True)
-            logger.info("VNC server stopped")
+    def restart_browser(self, profile_path: str) -> bool:
+        """Restart browser with fresh session"""
+        try:
+            logger.info("Restarting browser with fresh session...")
             
-            # Reset PIDs
-            self.vnc_pid = None
-            self.websockify_pid = None
-            self.chrome_pid = None
+            # Close current browser
+            self.close_browser()
+            
+            # Wait a moment
+            time.sleep(2)
+            
+            # Create new driver
+            return self.create_chrome_driver(profile_path)
             
         except Exception as e:
-            logger.error(f"Error stopping VNC server: {e}")
+            logger.error(f"Failed to restart browser: {e}")
+            return False
             
     def setup_and_start(self, profile_path: str) -> Dict[str, Any]:
-        """Complete VNC setup and start process"""
+        """Complete browser setup and start process"""
         try:
-            logger.info("Starting complete VNC setup process...")
+            logger.info("Starting Selenium browser setup...")
             
             # Check system compatibility
             if not self.check_system_compatibility():
                 return {
                     'success': False,
-                    'error': 'System not compatible with VNC setup'
+                    'error': 'System not compatible with Chrome/Selenium'
                 }
                 
-            # Install dependencies
-            if not self.install_vnc_dependencies():
+            # Install dependencies if needed
+            try:
+                # Try to create driver first, install dependencies if it fails
+                if not self.create_chrome_driver(profile_path):
+                    logger.info("Installing dependencies...")
+                    if not self.install_dependencies():
+                        return {
+                            'success': False,
+                            'error': 'Failed to install dependencies'
+                        }
+                    
+                    # Try again after installing dependencies
+                    if not self.create_chrome_driver(profile_path):
+                        return {
+                            'success': False,
+                            'error': 'Failed to create Chrome WebDriver after installing dependencies'
+                        }
+            except Exception as e:
+                logger.error(f"Driver creation failed: {e}")
                 return {
                     'success': False,
-                    'error': 'Failed to install VNC dependencies'
+                    'error': f'Failed to create WebDriver: {str(e)}'
                 }
                 
-            # Setup VNC server
-            if not self.setup_vnc_server():
+            # Navigate to Instagram
+            if not self.navigate_to_instagram():
                 return {
                     'success': False,
-                    'error': 'Failed to setup VNC server'
-                }
-                
-            # Start VNC server
-            if not self.start_vnc_server():
-                return {
-                    'success': False,
-                    'error': 'Failed to start VNC server'
-                }
-                
-            # Start Chrome in VNC
-            if not self.start_chrome_in_vnc(profile_path):
-                return {
-                    'success': False,
-                    'error': 'Failed to start Chrome in VNC session'
+                    'error': 'Failed to navigate to Instagram'
                 }
                 
             return {
                 'success': True,
                 'access_info': self.get_access_info(),
-                'message': 'VNC server with XFCE desktop started successfully'
+                'message': 'Selenium headless browser started successfully'
             }
             
         except Exception as e:
-            logger.error(f"VNC setup failed: {e}")
+            logger.error(f"Browser setup failed: {e}")
             return {
                 'success': False,
-                'error': f'VNC setup failed: {str(e)}'
+                'error': f'Browser setup failed: {str(e)}'
             }
 
-    def restart_chrome_fresh(self, profile_path: str) -> bool:
-        """Restart Chrome with completely fresh session"""
-        try:
-            logger.info("Restarting Chrome with completely fresh session...")
-            
-            # Stop current Chrome process if running
-            if self.chrome_pid:
-                try:
-                    os.kill(self.chrome_pid, signal.SIGTERM)
-                    time.sleep(3)
-                except ProcessLookupError:
-                    pass
-                self.chrome_pid = None
-            
-            # Completely clean and recreate the profile
-            self._clean_chrome_profile_completely(profile_path)
-            
-            # Start Chrome again
-            return self.start_chrome_in_vnc(profile_path)
-            
-        except Exception as e:
-            logger.error(f"Failed to restart Chrome: {e}")
-            return False
+# Global browser manager instance
+browser_manager = SeleniumBrowserManager()
 
-# Global VNC manager instance
-vnc_manager = VNCServerManager()
-
-def start_vnc_chrome_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
-    """Start VNC session with Chrome for manual login"""
-    global vnc_manager
+def start_browser_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
+    """Start browser session with Chrome for automation"""
+    global browser_manager
     if proxy_server:
-        vnc_manager.set_proxy(proxy_server)
-    return vnc_manager.setup_and_start(profile_path)
+        browser_manager.set_proxy(proxy_server)
+    return browser_manager.setup_and_start(profile_path)
     
-def get_vnc_status() -> Dict[str, Any]:
-    """Get current VNC status"""
-    return vnc_manager.get_status()
+def get_browser_status() -> Dict[str, Any]:
+    """Get current browser status"""
+    return browser_manager.get_status()
     
-def get_vnc_access_info() -> Dict[str, Any]:
-    """Get VNC access information"""
-    return vnc_manager.get_access_info()
+def get_browser_access_info() -> Dict[str, Any]:
+    """Get browser access information"""
+    return browser_manager.get_access_info()
     
-def stop_vnc_session():
-    """Stop VNC session"""
-    vnc_manager.stop_vnc_server()
+def stop_browser_session():
+    """Stop browser session"""
+    browser_manager.close_browser()
 
-def restart_chrome_fresh_session(profile_path: str) -> bool:
-    """Restart Chrome with fresh session - callable from web interface"""
-    return vnc_manager.restart_chrome_fresh(profile_path)
+def restart_browser_fresh_session(profile_path: str) -> bool:
+    """Restart browser with fresh session"""
+    return browser_manager.restart_browser(profile_path)
 
-def set_vnc_proxy(proxy_server: str):
-    """Set proxy server for VNC Chrome sessions"""
-    vnc_manager.set_proxy(proxy_server)
+def set_browser_proxy(proxy_server: str):
+    """Set proxy server for browser sessions"""
+    browser_manager.set_proxy(proxy_server)
+
+def get_driver():
+    """Get the current WebDriver instance"""
+    return browser_manager.driver
 
 if __name__ == "__main__":
-    # Test VNC setup
+    # Test browser setup
     profile_path = os.path.join(os.getcwd(), "chrome_profile_instagram")
-    result = start_vnc_chrome_session(profile_path)
-    print(f"VNC setup result: {result}") 
+    result = start_browser_session(profile_path)
+    print(f"Browser setup result: {result}") 

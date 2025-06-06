@@ -10,9 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
 import ssl
 import urllib3
-from selenium_driverless import webdriver as driverless_webdriver
-from selenium_driverless.types.by import By
-
+import undetected_chromedriver as uc
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -55,67 +53,81 @@ class ChromeProfileSetup:
             os.makedirs(CUSTOM_PROFILE_PATH, exist_ok=True)
         
     def setup_chrome_with_custom_profile(self):
-        """Setup Chrome driver with selenium-driverless and minimal options"""
-        try:
-            # Setup download directory
-            download_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads"))
-            os.makedirs(download_dir, exist_ok=True)
-            logger.info(f"Downloads will be saved to: {download_dir}")
-            
-            # Create a profile directory for Chrome to make settings persistent
-            profile_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "chrome_profile"))
-            os.makedirs(profile_dir, exist_ok=True)
-            logger.info(f"Using Chrome profile at: {profile_dir}")
-            
-            # Create Chrome options with minimal necessary flags
-            options = driverless_webdriver.ChromeOptions()
-            options.add_argument("--headless=new")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--window-size=1920,1080")
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--log-level=3")  # Minimal logging
-            
-            # Use the custom profile directory
-            options.add_argument(f"--user-data-dir={profile_dir}")
-            
-            # Set download preferences with absolute path - more reliable
-            prefs = {
-                "download.default_directory": download_dir.replace("\\", "/"),  # Use forward slashes
-                "download.prompt_for_download": False,
-                "download.directory_upgrade": True,
-                "safebrowsing.enabled": False,  # Disable safe browsing which can block downloads
-                "plugins.always_open_pdf_externally": True,  # Auto-download PDFs
-                "browser.download.folderList": 2,  # 2 means custom location
-                "browser.helperApps.neverAsk.saveToDisk": "application/pdf,application/x-pdf,application/octet-stream,text/plain,text/html",
-                "browser.download.manager.showWhenStarting": False
-            }
-            options.add_experimental_option("prefs", prefs)
+        """Setup Chrome driver with a custom profile directory"""
+        chrome_options = Options()
+        
+        # Clean existing profile and create fresh one
+        # self._clean_existing_profile()
+        
+        # Use custom profile directory
+        chrome_options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
+        
+        # Additional options for better stability
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
+        
+        # Keep browser open after script ends
+        chrome_options.add_experimental_option("detach", True)
 
+        prefs = {
+            "download.prompt_for_download": False,
+            "download.directory_upgrade": True,
+            "safebrowsing.enabled": False,  # Disable safe browsing which can block downloads
+            "plugins.always_open_pdf_externally": True,  # Auto-download PDFs
+            "browser.download.folderList": 2,  # 2 means custom location
+            "browser.helperApps.neverAsk.saveToDisk": "application/pdf,application/x-pdf,application/octet-stream,text/plain,text/html",
+            "browser.download.manager.showWhenStarting": False
+        }
+        chrome_options.add_experimental_option("prefs", prefs)
+        
+        try:
+            # service = Service(CHROMEDRIVER_PATH)
             # Disable SSL warnings
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+            # Create unverified SSL context
             ssl._create_default_https_context = ssl._create_unverified_context
 
-            # Create selenium-driverless Chrome driver
-            self.driver = driverless_webdriver.Chrome(options=options)
-            
-            logger.info("Chrome driver setup successful with selenium-driverless and custom profile")
+            options = uc.ChromeOptions()
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+
+            options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
+            # options.add_argument("--profile-directory=Default")
+            logger.info(f"Using Chrome profile: {CUSTOM_PROFILE_PATH}")
+
+            options.add_argument('--ignore-ssl-errors')
+            options.add_argument('--ignore-certificate-errors')
+            options.add_argument('--allow-running-insecure-content')
+            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
+            # options.add_argument(f"--proxy-server={PROXY_SERVER}")
+
+            # options.add_argument("--headless")
+
+            self.driver = uc.Chrome(options=options)
+
+            # self.driver = webdriver.Chrome(options=chrome_options)
+            # self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            logger.info("Chrome driver setup successful with custom profile")
             return True
         except Exception as e:
             logger.error(f"Failed to setup Chrome driver: {e}")
             return False
     
-    async def navigate_to_instagram(self):
+    def navigate_to_instagram(self):
         """Navigate to Instagram for manual login"""
         try:
-            await self.driver.get("https://www.instagram.com/")
+            self.driver.get("https://www.instagram.com/")
             logger.info("Navigated to Instagram - please log in manually")
-            await self.driver.sleep(10)
+            time.sleep(10)
 
             # Take screenshot of Instagram page
             try:
-                await self.driver.save_screenshot('inst2.png')
+                self.driver.save_screenshot('inst2.png')
                 logger.info("Captured screenshot of Instagram page")
             except Exception as e:
                 logger.error(f"Failed to capture screenshot: {e}")
@@ -125,7 +137,7 @@ class ChromeProfileSetup:
             logger.error(f"Failed to navigate to Instagram: {e}")
             return False
     
-    async def run_setup(self):
+    def run_setup(self):
         """Run the Chrome profile setup"""
         logger.info("Starting Chrome Profile Setup for Instagram")
         logger.info("="*50)
@@ -134,7 +146,7 @@ class ChromeProfileSetup:
             logger.error("Failed to setup Chrome driver. Exiting...")
             return
             
-        if not await self.navigate_to_instagram():
+        if not self.navigate_to_instagram():
             logger.error("Failed to navigate to Instagram. Exiting...")
             return
         
@@ -158,7 +170,7 @@ class ChromeProfileSetup:
         try:
             logger.info("Waiting 30 minutes for you to complete the login process...")
             logger.info("You can close this terminal once you've successfully logged in.")
-            await self.driver.sleep(1800)  # Wait 30 minutes
+            time.sleep(1800)  # Wait 30 minutes
         except KeyboardInterrupt:
             logger.info("Setup interrupted by user. Profile should be saved if login was completed.")
         except Exception as e:
@@ -166,9 +178,6 @@ class ChromeProfileSetup:
         
         # Update .env file with profile path
         self.update_env_file()
-        
-        # Close the driver
-        await self.driver.quit()
         
     def update_env_file(self):
         """Update the .env file with the custom profile path"""
@@ -203,6 +212,5 @@ class ChromeProfileSetup:
             logger.info(f"CHROME_PROFILE_PATH={CUSTOM_PROFILE_PATH}")
 
 if __name__ == "__main__":
-    import asyncio
     setup = ChromeProfileSetup()
-    asyncio.run(setup.run_setup()) 
+    setup.run_setup() 
