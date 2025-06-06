@@ -14,6 +14,7 @@ import signal
 import psutil
 import threading
 import shutil
+import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any
 import json
@@ -634,7 +635,7 @@ done
             logger.error(f"Failed to setup Chrome profile: {e}")
             return None
 
-    def start_chrome_in_vnc(self, profile_path: str) -> bool:
+    async def start_chrome_in_vnc(self, profile_path: str) -> bool:
         """Start Chrome browser inside VNC session using selenium-driverless"""
         try:
             logger.info("Starting Chrome browser in VNC session with selenium-driverless...")
@@ -648,16 +649,16 @@ done
             os.environ['DISPLAY'] = self.vnc_display
             
             # Wait for desktop to be ready
-            time.sleep(5)
+            await asyncio.sleep(5)
             
             # Start Chrome with selenium-driverless
-            return self._start_selenium_driverless_chrome(profile_path, download_dir)
+            return await self._start_selenium_driverless_chrome(profile_path, download_dir)
                 
         except Exception as e:
             logger.error(f"Failed to start Chrome in VNC: {e}")
             return False
     
-    def _start_selenium_driverless_chrome(self, profile_path: str, download_dir: str) -> bool:
+    async def _start_selenium_driverless_chrome(self, profile_path: str, download_dir: str) -> bool:
         """Start Chrome with selenium-driverless and minimal options"""
         try:
             logger.info("Starting Chrome with selenium-driverless...")
@@ -710,11 +711,11 @@ done
             
             # Start Chrome with selenium-driverless
             logger.info("Initializing selenium-driverless Chrome driver...")
-            self.driver = webdriver.Chrome(options=options)
+            self.driver = await webdriver.Chrome(options=options)
             
             # Navigate to Instagram
             logger.info("Navigating to Instagram...")
-            self.driver.get("https://www.instagram.com")
+            await self.driver.get("https://www.instagram.com")
             
             logger.info("Chrome started successfully with selenium-driverless in VNC session")
             return True
@@ -723,7 +724,7 @@ done
             logger.error(f"Failed to start selenium-driverless Chrome: {e}")
             if self.driver:
                 try:
-                    self.driver.quit()
+                    await self.driver.quit()
                 except:
                     pass
                 self.driver = None
@@ -742,7 +743,7 @@ done
             'status': self.get_status()
         }
         
-    def get_status(self) -> Dict[str, Any]:
+    async def get_status(self) -> Dict[str, Any]:
         """Get current VNC server status"""
         status = {
             'vnc_running': False,
@@ -768,7 +769,7 @@ done
             if self.driver:
                 try:
                     # Try to get current URL to check if driver is alive
-                    current_url = self.driver.current_url
+                    current_url = await self.driver.current_url
                     status['chrome_running'] = True
                 except:
                     status['chrome_running'] = False
@@ -780,7 +781,7 @@ done
             
         return status
         
-    def stop_vnc_server(self):
+    async def stop_vnc_server(self):
         """Stop VNC server and related processes"""
         try:
             logger.info("Stopping VNC server...")
@@ -788,7 +789,7 @@ done
             # Stop selenium driver
             if self.driver:
                 try:
-                    self.driver.quit()
+                    await self.driver.quit()
                     logger.info("Selenium driver stopped")
                 except Exception as e:
                     logger.warning(f"Error stopping selenium driver: {e}")
@@ -813,7 +814,7 @@ done
         except Exception as e:
             logger.error(f"Error stopping VNC server: {e}")
             
-    def setup_and_start(self, profile_path: str) -> Dict[str, Any]:
+    async def setup_and_start(self, profile_path: str) -> Dict[str, Any]:
         """Complete VNC setup and start process"""
         try:
             logger.info("Starting complete VNC setup process...")
@@ -847,7 +848,7 @@ done
                 }
                 
             # Start Chrome in VNC with selenium-driverless
-            if not self.start_chrome_in_vnc(profile_path):
+            if not await self.start_chrome_in_vnc(profile_path):
                 return {
                     'success': False,
                     'error': 'Failed to start Chrome with selenium-driverless in VNC session'
@@ -866,7 +867,7 @@ done
                 'error': f'VNC setup failed: {str(e)}'
             }
 
-    def restart_chrome_fresh(self, profile_path: str) -> bool:
+    async def restart_chrome_fresh(self, profile_path: str) -> bool:
         """Restart Chrome with completely fresh session using selenium-driverless"""
         try:
             logger.info("Restarting Chrome with completely fresh session...")
@@ -874,8 +875,8 @@ done
             # Stop current selenium driver if running
             if self.driver:
                 try:
-                    self.driver.quit()
-                    time.sleep(3)
+                    await self.driver.quit()
+                    await asyncio.sleep(3)
                 except Exception as e:
                     logger.warning(f"Error stopping current driver: {e}")
                 self.driver = None
@@ -884,10 +885,10 @@ done
             if os.path.exists(profile_path):
                 logger.info(f"Removing existing Chrome profile: {profile_path}")
                 shutil.rmtree(profile_path, ignore_errors=True)
-                time.sleep(1)
+                await asyncio.sleep(1)
             
             # Start Chrome again
-            return self.start_chrome_in_vnc(profile_path)
+            return await self.start_chrome_in_vnc(profile_path)
             
         except Exception as e:
             logger.error(f"Failed to restart Chrome: {e}")
@@ -896,28 +897,28 @@ done
 # Global VNC manager instance
 vnc_manager = VNCServerManager()
 
-def start_vnc_chrome_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
+async def start_vnc_chrome_session(profile_path: str, proxy_server: Optional[str] = None) -> Dict[str, Any]:
     """Start VNC session with Chrome for manual login"""
     global vnc_manager
     if proxy_server:
         vnc_manager.set_proxy(proxy_server)
-    return vnc_manager.setup_and_start(profile_path)
+    return await vnc_manager.setup_and_start(profile_path)
     
-def get_vnc_status() -> Dict[str, Any]:
+async def get_vnc_status() -> Dict[str, Any]:
     """Get current VNC status"""
-    return vnc_manager.get_status()
+    return await vnc_manager.get_status()
     
 def get_vnc_access_info() -> Dict[str, Any]:
     """Get VNC access information"""
     return vnc_manager.get_access_info()
     
-def stop_vnc_session():
+async def stop_vnc_session():
     """Stop VNC session"""
-    vnc_manager.stop_vnc_server()
+    await vnc_manager.stop_vnc_server()
 
-def restart_chrome_fresh_session(profile_path: str) -> bool:
+async def restart_chrome_fresh_session(profile_path: str) -> bool:
     """Restart Chrome with fresh session - callable from web interface"""
-    return vnc_manager.restart_chrome_fresh(profile_path)
+    return await vnc_manager.restart_chrome_fresh(profile_path)
 
 def set_vnc_proxy(proxy_server: str):
     """Set proxy server for VNC Chrome sessions"""
@@ -927,8 +928,12 @@ def get_driver():
     """Get the current selenium-driverless driver instance"""
     return vnc_manager.driver if vnc_manager else None
 
+async def main():
+    """Main async function for testing VNC setup"""
+    profile_path = os.path.join(os.getcwd(), "chrome_profile_instagram")
+    result = await start_vnc_chrome_session(profile_path)
+    print(f"VNC setup result: {result}")
+
 if __name__ == "__main__":
     # Test VNC setup
-    profile_path = os.path.join(os.getcwd(), "chrome_profile_instagram")
-    result = start_vnc_chrome_session(profile_path)
-    print(f"VNC setup result: {result}") 
+    asyncio.run(main()) 
