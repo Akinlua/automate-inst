@@ -167,11 +167,14 @@ class InstagramPoster:
         print(f"chrome_profile_path: {self.chrome_profile_path}")
         print(f"chrome_user_data_dir: {self.chrome_user_data_dir}")
         if self.chrome_profile_path and os.path.exists(self.chrome_profile_path):
+            print("chrome_profile_path exists")
             # V1 approach - custom profile directory
             chrome_options.add_argument(f"--user-data-dir={self.chrome_profile_path}")
             chrome_options.add_argument("--profile-directory=Default")
             logger.info(f"Using V1 Chrome profile: {self.chrome_profile_path}")
         else:
+            print("chrome_profile_path does not exist")
+            print(f"chrome_user_data_dir: {self.chrome_user_data_dir}")
             # V2 approach - Chrome's built-in profile system
             chrome_options.add_argument(f"--user-data-dir={self.chrome_user_data_dir}")
             chrome_options.add_argument(f"--profile-directory={self.chrome_profile_name}")
