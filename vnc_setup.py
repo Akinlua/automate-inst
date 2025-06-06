@@ -734,13 +734,9 @@ done
             logger.info("Initializing selenium-driverless Chrome driver with extended timeout...")
             
             try:
-                # Start Chrome with selenium-driverless and increased timeout
-                self.driver = await webdriver.Chrome(
-                    options=options,
-                    max_ws_size=2**20,  # 1MB max websocket size
-                    host="127.0.0.1",
-                    port=None  # Let it choose a port
-                )
+                # Start Chrome with selenium-driverless using minimal parameters
+                logger.info("Attempting basic selenium-driverless initialization...")
+                self.driver = await webdriver.Chrome(options=options)
                 
                 logger.info("Chrome driver initialized, waiting for connection...")
                 await asyncio.sleep(5)
@@ -760,8 +756,8 @@ done
                 logger.info("Chrome started successfully with selenium-driverless in VNC session")
                 return True
                 
-            except asyncio.TimeoutError:
-                logger.error("Timeout connecting to Chrome - this is likely due to VNC display issues")
+            except Exception as e:
+                logger.error(f"selenium-driverless initialization failed: {e}")
                 logger.info("Attempting fallback approach...")
                 
                 # Try fallback approach with different options
