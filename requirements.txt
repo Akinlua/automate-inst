@@ -10,3 +10,4 @@ pytz
 psutil
 undetected_chromedriver
 setuptools
+selenium-driverless
