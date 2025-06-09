@@ -1846,7 +1846,7 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Create upload folder if it doesn't exist
     upload_folder = Path('content')
     upload_folder.mkdir(exist_ok=True)
