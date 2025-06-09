@@ -1,0 +1,7 @@
+#!/bin/bash
+cd "/Users/user/Documents/instagram_api"
+if [[ -f "start.sh" ]]; then
+    open -a Terminal "/Users/user/Documents/instagram_api/start.sh"
+else
+    osascript -e 'display alert "Error" message "Script start.sh not found in /Users/user/Documents/instagram_api"'
+fi

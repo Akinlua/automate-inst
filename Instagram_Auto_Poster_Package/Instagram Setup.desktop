@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Instagram Auto Poster - Setup
+Comment=Instagram Auto Poster - One-time Setup
+Exec=bash -c "cd '%k/InstagramAutoPoster' && ./setup.sh; read -p 'Press Enter to close...'"
+Icon=system-software-install
+Type=Application
+Terminal=true
+Categories=Development;

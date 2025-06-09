@@ -66,12 +66,21 @@ cp setup.bat "$PACKAGE_DIR/"
 cp setup.sh "$PACKAGE_DIR/"
 cp start.bat "$PACKAGE_DIR/"
 cp start.sh "$PACKAGE_DIR/"
+cp setup_integration.py "$PACKAGE_DIR/"
+cp setup_chrome.py "$PACKAGE_DIR/"
+cp setup_chromev1.py "$PACKAGE_DIR/"
+cp test_setup.py "$PACKAGE_DIR/"
+cp troublshooting.py "$PACKAGE_DIR/"
 
 # Make scripts executable in package
 chmod +x "$PACKAGE_DIR/setup.sh"
 chmod +x "$PACKAGE_DIR/start.sh"
 
 # Configuration files
+if [[ -f ".env" ]]; then
+    cp .env "$PACKAGE_DIR/"
+fi
+
 if [[ -f ".env.example" ]]; then
     cp .env.example "$PACKAGE_DIR/"
 fi

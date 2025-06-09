@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Instagram Auto Poster{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Login Status Alert -->
+        <div id="loginStatusAlert" class="alert alert-warning border-start border-warning border-4 mb-4" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-2">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Instagram Login Required
+                    </h6>
+                    <p class="mb-2">You need to log in to Instagram to use the automated posting features.</p>
+                    <p class="mb-0">
+                        <strong>Important:</strong> Before logging in, please check your Instagram account on your phone or other device. 
+                        Instagram may show a security prompt asking you to allow login from this IP address.
+                    </p>
+                </div>
+                <div class="flex-shrink-0 ms-3">
+                    <a href="{{ url_for('settings') }}" class="btn btn-warning">
+                        <i class="fas fa-sign-in-alt me-1"></i>
+                        Login to Instagram
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">
+                    <i class="fas fa-tachometer-alt me-2 text-primary"></i>
+                    Dashboard
+                </h1>
+                <p class="text-muted mb-0">Manage your Instagram content by month</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-success" onclick="postNow()" id="postNowBtn">
+                    <i class="fas fa-paper-plane me-1"></i>
+                    Post Now
+                </button>
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-cog me-1"></i>
+                        Actions
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="createSampleContent()">
+                            <i class="fas fa-plus me-2"></i>Create Sample Content
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('settings') }}">
+                            <i class="fas fa-cog me-2"></i>Settings
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scheduler Errors Section -->
+        {% if scheduler_errors %}
+        <div class="alert alert-warning border-start border-warning border-4 mb-4">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Scheduler Errors ({{ scheduler_errors|length }})
+                    </h6>
+                    <p class="mb-2">The automatic scheduler encountered the following errors:</p>
+                    
+                    <div class="error-list" style="max-height: 200px; overflow-y: auto;">
+                        {% for error in scheduler_errors[-5:] %}
+                        <div class="d-flex align-items-start mb-2 p-2 bg-light rounded">
+                            <div class="flex-shrink-0 me-2">
+                                <i class="fas fa-clock text-muted"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <small class="text-muted d-block">{{ error.timestamp[:19] }}</small>
+                                <span class="text-dark">{{ error.message }}</span>
+                                {% if error.month %}
+                                <small class="text-muted d-block">Month: {{ error.month }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if scheduler_errors|length > 5 %}
+                        <small class="text-muted">... and {{ scheduler_errors|length - 5 }} more error(s)</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex-shrink-0 ms-3">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSchedulerErrors()">
+                        <i class="fas fa-trash me-1"></i>
+                        Clear Errors
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Current Month Highlight -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-primary bg-primary bg-opacity-10">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="card-title text-primary mb-1">
+                                    <i class="fas fa-star me-2"></i>
+                                    Current Month: {{ months[current_month - 1].name }}
+                                </h5>
+                                <p class="card-text text-muted mb-0">
+                                    {{ months[current_month - 1].posts_available }} posts available, 
+                                    {{ months[current_month - 1].posts_used }} already posted
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-md-end">
+                                <a href="{{ url_for('month_detail', month_num=current_month) }}" class="btn btn-primary">
+                                    <i class="fas fa-edit me-1"></i>
+                                    Manage Content
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Months Grid -->
+        <div class="row">
+            {% for month in months %}
+            <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                <div class="card h-100 month-card {% if month.month == current_month %}border-primary{% endif %}">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold">
+                            <i class="fas fa-calendar-alt me-2 text-primary"></i>
+                            {{ month.name }}
+                        </h6>
+                        {% if month.month == current_month %}
+                            <span class="badge bg-primary">Current</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <!-- Stats -->
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <div class="stat-item">
+                                    <i class="fas fa-images text-info mb-1"></i>
+                                    <div class="fw-bold">{{ month.images }}</div>
+                                    <small class="text-muted">Images</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-item">
+                                    <i class="fas fa-quote-right text-warning mb-1"></i>
+                                    <div class="fw-bold">{{ month.captions }}</div>
+                                    <small class="text-muted">Captions</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-item">
+                                    <i class="fas fa-check-circle text-success mb-1"></i>
+                                    <div class="fw-bold">{{ month.posts_used }}</div>
+                                    <small class="text-muted">Posted</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        {% set progress = ((month.posts_used / month.captions * 100) | round(1)) if month.captions > 0 else 0 %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="text-muted">Progress</small>
+                                <small class="text-muted">{{ progress }}%</small>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-success" style="width: {{ progress }}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Last Post Info -->
+                        {% if month.last_post %}
+                            <div class="alert alert-light border-0 py-2 mb-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Last post: {{ month.last_post }}
+                                </small>
+                            </div>
+                        {% endif %}
+
+                        <!-- Status Badge -->
+                        <div class="mb-3">
+                            {% if month.posts_available > 0 %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>
+                                    {{ month.posts_available }} available
+                                </span>
+                            {% elif month.captions > 0 %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    All posts used
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-plus me-1"></i>
+                                    No content
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-top-0">
+                        <a href="{{ url_for('month_detail', month_num=month.month) }}" 
+                           class="btn btn-outline-primary w-100">
+                            <i class="fas fa-edit me-1"></i>
+                            Manage Month
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Post Now Modal -->
+<div class="modal fade" id="postNowModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    Post to Instagram
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="postNowForm">
+                    <div class="mb-3">
+                        <label for="numImages" class="form-label">Number of images per post</label>
+                        <select class="form-select" id="numImages" name="num_images">
+                            <option value="1">1 image</option>
+                            <option value="2">2 images</option>
+                            <option value="3">3 images</option>
+                            <option value="4">4 images</option>
+                            <option value="5">5 images</option>
+                            <option value="6">6 images</option>
+                            <option value="7">7 images</option>
+                            <option value="8">8 images</option>
+                            <option value="9">9 images</option>
+                            <option value="10">10 images</option>
+                        </select>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        This will post content from the current month ({{ months[current_month - 1].name }}) 
+                        using {{ months[current_month - 1].posts_available }} available posts.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="confirmPost()">
+                    <i class="fas fa-paper-plane me-1"></i>
+                    Post Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Posting to Instagram...</h5>
+                <p class="text-muted mb-0">This may take a few minutes</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Store data for JavaScript
+window.appData = {
+    currentMonth: {{ current_month }},
+    availablePosts: {{ months[current_month - 1].posts_available }}
+};
+
+function postNow() {
+    if (window.appData.availablePosts === 0) {
+        alert('No content available for the current month. Please add images and captions first.');
+        return;
+    }
+    
+    new bootstrap.Modal(document.getElementById('postNowModal')).show();
+}
+
+function confirmPost() {
+    const form = document.getElementById('postNowForm');
+    const formData = new FormData(form);
+    
+    // Hide post modal and show loading
+    bootstrap.Modal.getInstance(document.getElementById('postNowModal')).hide();
+    new bootstrap.Modal(document.getElementById('loadingModal')).show();
+    
+    fetch('/post_now', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('loadingModal')).hide();
+        
+        if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(error => {
+        bootstrap.Modal.getInstance(document.getElementById('loadingModal')).hide();
+        alert('❌ Error: ' + error.message);
+    });
+}
+
+function createSampleContent() {
+    if (confirm('This will create sample CSV files with captions for all months (1-12). Continue?')) {
+        // Show loading state
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating...';
+        
+        fetch('/create_sample_content', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                location.reload(); // Refresh to show updated stats
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('❌ Error: ' + error.message);
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    }
+}
+
+function clearSchedulerErrors() {
+    if (confirm('Are you sure you want to clear all scheduler errors?')) {
+        fetch('/clear_scheduler_errors', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+                location.reload();
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('❌ Error: ' + error.message);
+        });
+    }
+}
+
+// Auto-refresh stats every 30 seconds
+setInterval(() => {
+    fetch('/api/stats')
+    .then(response => response.json())
+    .then(data => {
+        // Update stats without full page reload
+        console.log('Stats updated');
+    });
+}, 30000);
+
+// Check login status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkLoginStatus();
+});
+
+function checkLoginStatus() {
+    fetch('/api/login/check')
+        .then(response => response.json())
+        .then(data => {
+            const loginAlert = document.getElementById('loginStatusAlert');
+            if (data.logged_in) {
+                loginAlert.style.display = 'none';
+            } else {
+                loginAlert.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error checking login status:', error);
+        });
+}
+</script>
+{% endblock %} 

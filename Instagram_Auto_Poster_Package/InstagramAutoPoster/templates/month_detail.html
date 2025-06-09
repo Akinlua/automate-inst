@@ -1,0 +1,918 @@
+{% extends "base.html" %}
+
+{% block title %}{{ month_name }} - Instagram Auto Poster{% endblock %}
+
+{% block content %}
+<style>
+.caption-item {
+    cursor: move;
+    transition: all 0.2s ease;
+}
+
+.caption-item:hover {
+    background-color: #f8f9fa;
+}
+
+.caption-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.image-item {
+    cursor: move;
+    transition: all 0.2s ease;
+}
+
+.image-item:hover {
+    transform: scale(1.02);
+}
+
+.image-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.drag-handle {
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.caption-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.caption-edit {
+    resize: vertical;
+}
+
+.list-group-item {
+    border-left: 3px solid transparent;
+}
+
+.list-group-item:hover {
+    border-left-color: #0d6efd;
+}
+
+.dropzone {
+    border: 2px dashed #0d6efd;
+    background-color: #f8f9ff;
+}
+
+.scheduler-error {
+    border-left: 4px solid #dc3545;
+    background-color: #f8d7da;
+    color: #721c24;
+}
+</style>
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item active">{{ month_name }}</li>
+                    </ol>
+                </nav>
+                <h1 class="h2 mb-1">
+                    <i class="fas fa-calendar-alt me-2 text-primary"></i>
+                    {{ month_name }} Content
+                </h1>
+                <p class="text-muted mb-0">Manage images and captions for this month</p>
+            </div>
+            <div>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Scheduler Errors -->
+        {% if scheduler_errors %}
+        <div class="alert alert-warning scheduler-error mb-4">
+            <h6 class="alert-heading">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Scheduler Errors for {{ month_name }}
+            </h6>
+            {% for error in scheduler_errors %}
+            <div class="mb-2">
+                <small class="text-muted">{{ error.timestamp[:19] }}</small><br>
+                {{ error.message }}
+            </div>
+            {% endfor %}
+            <hr>
+            <small class="mb-0">These errors occurred when the automatic scheduler tried to post content. Please check your settings and content availability.</small>
+        </div>
+        {% endif %}
+
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-images fa-2x text-info mb-2"></i>
+                        <h3 class="mb-1">{{ stats.images }}</h3>
+                        <small class="text-muted">Images</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-quote-right fa-2x text-warning mb-2"></i>
+                        <h3 class="mb-1">{{ stats.captions }}</h3>
+                        <small class="text-muted">Captions</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <h3 class="mb-1">{{ stats.posts_used }}</h3>
+                        <small class="text-muted">Posts Used</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-clock fa-2x text-primary mb-2"></i>
+                        <h3 class="mb-1">{{ stats.posts_available }}</h3>
+                        <small class="text-muted">Available</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-upload me-2"></i>
+                            Upload Images
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('upload_images', month_num=month_num) }}" method="post" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="imageFiles" class="form-label">Select Images</label>
+                                <input type="file" class="form-control" id="imageFiles" name="files" multiple accept="image/*" required>
+                                <div class="form-text">Supported: JPG, PNG, GIF, WebP</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-1"></i>
+                                Upload Images
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-file-csv me-2"></i>
+                            Upload Captions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('upload_csv', month_num=month_num) }}" method="post" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="csvFile" class="form-label">CSV File</label>
+                                <input type="file" class="form-control" id="csvFile" name="csv_file" accept=".csv" required>
+                                <div class="form-text">One caption per line in CSV format</div>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-upload me-1"></i>
+                                Upload Captions
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Tabs -->
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="contentTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="images-tab" data-bs-toggle="tab" data-bs-target="#images" type="button" role="tab">
+                            <i class="fas fa-images me-1"></i>
+                            Images ({{ images|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="captions-tab" data-bs-toggle="tab" data-bs-target="#captions" type="button" role="tab">
+                            <i class="fas fa-quote-right me-1"></i>
+                            Captions ({{ captions|length }})
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content" id="contentTabsContent">
+                    <!-- Images Tab -->
+                    <div class="tab-pane fade show active" id="images" role="tabpanel">
+                        {% if images %}
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">Images (sorted by filename)</h6>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-danger btn-sm" onclick="deleteAllImages()">
+                                        <i class="fas fa-trash me-1"></i>
+                                        Delete All Images
+                                    </button>
+                                    <small class="text-muted">
+                                        <i class="fas fa-arrows-alt me-1"></i>
+                                        Drag to reorder
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="row" id="imagesList">
+                                {% for image in images %}
+                                <div class="col-lg-3 col-md-4 col-sm-6 mb-3 image-item" data-filename="{{ image.name }}" draggable="true">
+                                    <div class="card">
+                                        <div class="position-relative">
+                                            <img src="{{ url_for('serve_image', month_num=month_num, filename=image.name) }}" 
+                                                 class="card-img-top" 
+                                                 style="height: 200px; object-fit: cover;" 
+                                                 alt="{{ image.name }}"
+                                                 onerror="this.src='https://via.placeholder.com/300x200?text=Image+Not+Found'">
+                                            <div class="position-absolute top-0 end-0 p-2">
+                                                <span class="badge bg-primary">{{ loop.index }}</span>
+                                            </div>
+                                            <div class="position-absolute top-0 start-0 p-2">
+                                                <i class="fas fa-grip-vertical text-white drag-handle" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);"></i>
+                                            </div>
+                                            {% if image.is_used %}
+                                            <div class="position-absolute bottom-0 end-0 p-2">
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check me-1"></i>Posted
+                                                </span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <small class="text-muted d-block text-truncate mb-2">{{ image.name }}</small>
+                                            <button class="btn btn-danger btn-sm w-100" onclick="deleteImage('{{ image.name }}')">
+                                                <i class="fas fa-trash me-1"></i>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-images fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No Images Uploaded</h5>
+                                <p class="text-muted">Upload some images to get started</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Captions Tab -->
+                    <div class="tab-pane fade" id="captions" role="tabpanel">
+                        <!-- Add New Caption Form -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-plus me-2"></i>
+                                    Add New Caption(s)
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="addCaptionForm">
+                                    <div class="mb-3">
+                                        <label for="newCaptionText" class="form-label">Caption Text</label>
+                                        <textarea class="form-control" id="newCaptionText" rows="6" placeholder="Enter captions here...
+
+Supported formats:
+- Single caption: Just type your caption text
+- Multiple with IDs: id1,caption text 1
+- Mixed format supported
+
+Examples:
+post1,This is my first caption
+This is a caption without ID (auto-assigned)
+post3,Another caption with specific ID" required></textarea>
+                                        <div class="form-text">
+                                            <strong>Formats:</strong><br>
+                                            • <code>caption text</code> - Single caption (auto-assigned ID)<br>
+                                            • <code>id,caption text</code> - Caption with specific ID<br>
+                                            • Multiple lines supported - one caption per line
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Add Caption(s)
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        {% if captions %}
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">Existing Captions</h6>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-danger btn-sm" onclick="deleteAllCaptions()">
+                                        <i class="fas fa-trash me-1"></i>
+                                        Delete All Captions
+                                    </button>
+                                    <small class="text-muted">
+                                        <i class="fas fa-arrows-alt me-1"></i>
+                                        Drag to reorder
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="list-group" id="captionsList">
+                                {% for caption in captions %}
+                                <div class="list-group-item caption-item{% if caption.is_used %} border-success{% endif %}" data-id="{{ caption.id }}" draggable="true">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <span class="badge bg-primary me-2">{{ caption.index + 1 }}</span>
+                                                <small class="text-muted">ID: {{ caption.id }}</small>
+                                                {% if caption.is_used %}
+                                                <span class="badge bg-success ms-2">
+                                                    <i class="fas fa-check me-1"></i>Posted
+                                                </span>
+                                                {% endif %}
+                                                <div class="ms-auto">
+                                                    <i class="fas fa-grip-vertical text-muted drag-handle"></i>
+                                                </div>
+                                            </div>
+                                            <div class="caption-text" id="caption-text-{{ caption.id }}">
+                                                {{ caption.text }}
+                                            </div>
+                                            <textarea class="form-control caption-edit d-none" id="caption-edit-{{ caption.id }}" rows="3">{{ caption.text }}</textarea>
+                                        </div>
+                                        <div class="btn-group ms-3">
+                                            <button class="btn btn-sm btn-outline-primary edit-btn" onclick="editCaption('{{ caption.id }}')">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success save-btn d-none" onclick="saveCaption('{{ caption.id }}')">
+                                                <i class="fas fa-save"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary cancel-btn d-none" onclick="cancelEdit('{{ caption.id }}')">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="showFullCaption('{{ caption.text|e }}')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCaption('{{ caption.id }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-quote-right fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No Captions Available</h5>
+                                <p class="text-muted">Upload a CSV file or add captions manually to get started</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Caption Modal -->
+<div class="modal fade" id="captionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-quote-right me-2"></i>
+                    Full Caption
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-control" style="min-height: 150px; white-space: pre-wrap;" id="fullCaptionText"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trash me-2 text-danger"></i>
+                    Confirm Delete
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteImageName"></strong>?</p>
+                <p class="text-danger mb-0">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash me-1"></i>
+                    Delete Image
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentImageToDelete = null;
+let isDragging = false;
+let draggedElement = null;
+
+// Caption management functions
+function showFullCaption(text) {
+    document.getElementById('fullCaptionText').textContent = text;
+    new bootstrap.Modal(document.getElementById('captionModal')).show();
+}
+
+function editCaption(captionId) {
+    const textDiv = document.getElementById(`caption-text-${captionId}`);
+    const editTextarea = document.getElementById(`caption-edit-${captionId}`);
+    const editBtn = textDiv.closest('.list-group-item').querySelector('.edit-btn');
+    const saveBtn = textDiv.closest('.list-group-item').querySelector('.save-btn');
+    const cancelBtn = textDiv.closest('.list-group-item').querySelector('.cancel-btn');
+    
+    textDiv.classList.add('d-none');
+    editTextarea.classList.remove('d-none');
+    editBtn.classList.add('d-none');
+    saveBtn.classList.remove('d-none');
+    cancelBtn.classList.remove('d-none');
+    
+    editTextarea.focus();
+}
+
+function saveCaption(captionId) {
+    const editTextarea = document.getElementById(`caption-edit-${captionId}`);
+    const newText = editTextarea.value.trim();
+    
+    if (!newText) {
+        showNotification('Caption text cannot be empty', 'error');
+        return;
+    }
+    
+    fetch(`/edit_caption/{{ month_num }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: captionId,
+            text: newText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the display text
+            document.getElementById(`caption-text-${captionId}`).textContent = newText;
+            cancelEdit(captionId);
+            showNotification(data.message, 'success');
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error saving caption: ' + error.message, 'error');
+    });
+}
+
+function cancelEdit(captionId) {
+    const textDiv = document.getElementById(`caption-text-${captionId}`);
+    const editTextarea = document.getElementById(`caption-edit-${captionId}`);
+    const editBtn = textDiv.closest('.list-group-item').querySelector('.edit-btn');
+    const saveBtn = textDiv.closest('.list-group-item').querySelector('.save-btn');
+    const cancelBtn = textDiv.closest('.list-group-item').querySelector('.cancel-btn');
+    
+    textDiv.classList.remove('d-none');
+    editTextarea.classList.add('d-none');
+    editBtn.classList.remove('d-none');
+    saveBtn.classList.add('d-none');
+    cancelBtn.classList.add('d-none');
+    
+    // Reset textarea to original value
+    editTextarea.value = textDiv.textContent;
+}
+
+// Add new caption
+document.getElementById('addCaptionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const newText = document.getElementById('newCaptionText').value.trim();
+    if (!newText) {
+        showNotification('Caption text is required', 'error');
+        return;
+    }
+    
+    // Disable submit button to prevent double submission
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adding...';
+    
+    fetch(`/add_caption/{{ month_num }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            text: newText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Clear the form
+            document.getElementById('newCaptionText').value = '';
+            // Reload page to show new captions
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error adding caption(s): ' + error.message, 'error');
+    })
+    .finally(() => {
+        // Re-enable submit button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+});
+
+// Image deletion functions
+function deleteImage(filename) {
+    currentImageToDelete = filename;
+    document.getElementById('deleteImageName').textContent = filename;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function confirmDelete() {
+    if (!currentImageToDelete) return;
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+    modal.hide();
+    
+    fetch(`/delete_image/{{ month_num }}/${currentImageToDelete}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error deleting image: ' + error.message, 'error');
+    })
+    .finally(() => {
+        currentImageToDelete = null;
+    });
+}
+
+function deleteAllImages() {
+    if (!confirm('Are you sure you want to delete ALL images for this month?\n\nThis action cannot be undone and will also remove these images from posted content and image order.')) {
+        return;
+    }
+    
+    fetch(`/delete_all_images/{{ month_num }}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error deleting all images: ' + error.message, 'error');
+    });
+}
+
+// Caption deletion functions
+function deleteCaption(captionId) {
+    if (!confirm('Are you sure you want to delete this caption?\n\nThis action cannot be undone and will also remove it from posted content.')) {
+        return;
+    }
+    
+    fetch(`/delete_caption/{{ month_num }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: captionId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error deleting caption: ' + error.message, 'error');
+    });
+}
+
+function deleteAllCaptions() {
+    if (!confirm('Are you sure you want to delete ALL captions for this month?\n\nThis action cannot be undone and will also remove them from posted content.')) {
+        return;
+    }
+    
+    fetch(`/delete_all_captions/{{ month_num }}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error deleting all captions: ' + error.message, 'error');
+    });
+}
+
+// Image drag and drop functionality
+function initializeImageDragAndDrop() {
+    const imagesList = document.getElementById('imagesList');
+    if (!imagesList) return;
+    
+    imagesList.addEventListener('dragstart', function(e) {
+        const imageItem = e.target.closest('.image-item');
+        if (imageItem) {
+            draggedElement = imageItem;
+            isDragging = true;
+            imageItem.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', imageItem.outerHTML);
+        }
+    });
+    
+    imagesList.addEventListener('dragend', function(e) {
+        if (draggedElement) {
+            draggedElement.classList.remove('dragging');
+            draggedElement = null;
+            isDragging = false;
+        }
+    });
+    
+    imagesList.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        const afterElement = getImageAfterElement(imagesList, e.clientX, e.clientY);
+        if (afterElement == null) {
+            imagesList.appendChild(draggedElement);
+        } else {
+            imagesList.insertBefore(draggedElement, afterElement);
+        }
+    });
+    
+    imagesList.addEventListener('drop', function(e) {
+        e.preventDefault();
+        
+        if (draggedElement) {
+            // Get new order of images
+            const imageItems = Array.from(imagesList.querySelectorAll('.image-item'));
+            const newOrder = imageItems.map(item => item.dataset.filename);
+            
+            // Send new order to server
+            fetch(`/reorder_images/{{ month_num }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    order: newOrder
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.message, 'error');
+                    // Reload page to restore original order
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                showNotification('Error reordering images: ' + error.message, 'error');
+                location.reload();
+            });
+        }
+    });
+}
+
+function getImageAfterElement(container, x, y) {
+    const draggableElements = [...container.querySelectorAll('.image-item:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = x - box.left - box.width / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+function updateImageBadgeNumbers() {
+    const imageItems = document.querySelectorAll('.image-item');
+    imageItems.forEach((item, index) => {
+        const badge = item.querySelector('.badge');
+        if (badge) {
+            badge.textContent = index + 1;
+        }
+    });
+}
+
+// Improved caption drag and drop functionality
+function initializeCaptionDragAndDrop() {
+    const captionsList = document.getElementById('captionsList');
+    if (!captionsList) return;
+    
+    captionsList.addEventListener('dragstart', function(e) {
+        const captionItem = e.target.closest('.caption-item');
+        if (captionItem) {
+            draggedElement = captionItem;
+            isDragging = true;
+            captionItem.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', captionItem.outerHTML);
+        }
+    });
+    
+    captionsList.addEventListener('dragend', function(e) {
+        if (draggedElement) {
+            draggedElement.classList.remove('dragging');
+            // Don't reset draggedElement here, wait for drop
+        }
+    });
+    
+    captionsList.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        if (!draggedElement) return;
+        
+        const afterElement = getCaptionAfterElement(captionsList, e.clientY);
+        if (afterElement == null) {
+            captionsList.appendChild(draggedElement);
+        } else {
+            captionsList.insertBefore(draggedElement, afterElement);
+        }
+    });
+    
+    captionsList.addEventListener('drop', function(e) {
+        e.preventDefault();
+        
+        if (draggedElement) {
+            // Get new order
+            const captionItems = Array.from(captionsList.querySelectorAll('.caption-item'));
+            const newOrder = captionItems.map(item => item.dataset.id);
+            
+            // Send new order to server
+            fetch(`/reorder_captions/{{ month_num }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    order: newOrder
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Update badge numbers
+                    updateCaptionBadgeNumbers();
+                } else {
+                    showNotification(data.message, 'error');
+                    // Reload page to restore original order
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                showNotification('Error reordering captions: ' + error.message, 'error');
+                location.reload();
+            })
+            .finally(() => {
+                draggedElement = null;
+                isDragging = false;
+            });
+        }
+    });
+    
+    // Add dragenter and dragleave for better visual feedback
+    captionsList.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        if (isDragging) {
+            captionsList.classList.add('dropzone');
+        }
+    });
+    
+    captionsList.addEventListener('dragleave', function(e) {
+        if (isDragging && !captionsList.contains(e.relatedTarget)) {
+            captionsList.classList.remove('dropzone');
+        }
+    });
+}
+
+function getCaptionAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.caption-item:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+function updateCaptionBadgeNumbers() {
+    const captionItems = document.querySelectorAll('.caption-item');
+    captionItems.forEach((item, index) => {
+        const badge = item.querySelector('.badge');
+        if (badge) {
+            badge.textContent = index + 1;
+        }
+    });
+}
+
+function showNotification(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.col-12');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Initialize drag and drop when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCaptionDragAndDrop();
+    initializeImageDragAndDrop();
+});
+</script>
+{% endblock %} 

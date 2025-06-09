@@ -1,0 +1,13 @@
+selenium
+Pillow
+python-dotenv
+schedule
+openai
+requests
+flask
+werkzeug
+pytz
+psutil
+undetected_chromedriver
+setuptools
+selenium-driverless
