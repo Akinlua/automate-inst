@@ -18,7 +18,14 @@ from instagram_poster import InstagramPoster
 from setup_integration import web_setup
 import pytz
 from dotenv import load_dotenv
-
+import ssl
+import urllib3
+import threading
+import signal
+import atexit
+from PIL import Image
+import base64
+import time
 # Load environment variables
 load_dotenv()
 
@@ -454,22 +461,62 @@ def update_scheduler_settings():
 
 @app.route('/api/scheduler/start', methods=['POST'])
 def start_scheduler():
-    """Start the scheduler (this would need to be implemented with a background process)"""
+    """Start the scheduler"""
     try:
-        # This is a placeholder - in production you'd start the scheduler as a background service
-        return jsonify({
-            'success': True,
-            'message': 'Scheduler start command sent. Run `python instagram_poster.py schedule` to start the scheduler.'
-        })
+        global scheduler_manager
+        if scheduler_manager is None:
+            scheduler_manager = SchedulerManager()
+        
+        if scheduler_manager.start_scheduler():
+            return jsonify({
+                'success': True,
+                'message': 'Scheduler started successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Scheduler is already running'
+            })
     except Exception as e:
+        logger.error(f"Error starting scheduler: {e}")
         return jsonify({
             'success': False,
             'message': f'Error starting scheduler: {str(e)}'
         })
 
+@app.route('/api/scheduler/stop', methods=['POST'])
+def stop_scheduler():
+    """Stop the scheduler"""
+    try:
+        global scheduler_manager
+        if scheduler_manager is None:
+            return jsonify({
+                'success': False,
+                'message': 'Scheduler is not running'
+            })
+        
+        if scheduler_manager.stop_scheduler():
+            return jsonify({
+                'success': True,
+                'message': 'Scheduler stopped successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Scheduler was not running'
+            })
+    except Exception as e:
+        logger.error(f"Error stopping scheduler: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Error stopping scheduler: {str(e)}'
+        })
+
 @app.route('/api/scheduler/status')
 def get_scheduler_status():
     try:
+        global scheduler_manager
+        
         # Check if scheduler is enabled
         settings_file = os.path.join('scheduler_settings.json')
         scheduler_enabled = False
@@ -501,11 +548,23 @@ def get_scheduler_status():
                 posted_data = json.load(f)
                 if posted_data:
                     # Get the most recent post
-                    latest_post = max(posted_data.values(), key=lambda x: x.get('timestamp', ''))
-                    last_post_time = latest_post.get('timestamp')
+                    latest_timestamp = None
+                    for month_data in posted_data.values():
+                        if 'post_history' in month_data:
+                            for post in month_data['post_history']:
+                                if latest_timestamp is None or post.get('posted_at', '') > latest_timestamp:
+                                    latest_timestamp = post.get('posted_at')
+                    last_post_time = latest_timestamp
+        
+        # Get scheduler manager status
+        scheduler_running = False
+        if scheduler_manager is not None:
+            manager_status = scheduler_manager.get_status()
+            scheduler_running = manager_status['running']
         
         status = {
             'enabled': scheduler_enabled,
+            'running': scheduler_running,
             'posting_times': posting_times,
             'num_images': num_images,
             'timezone': timezone,
@@ -515,7 +574,7 @@ def get_scheduler_status():
         }
         
         # Calculate next post time with timezone support
-        if scheduler_enabled and posting_times:
+        if scheduler_enabled and scheduler_running and posting_times:
             try:
                 user_tz = pytz.timezone(timezone)
                 # Automatically detect server timezone using system's local time
@@ -525,13 +584,11 @@ def get_scheduler_status():
                     system_tz = dt.datetime.now().astimezone().tzinfo
                     # Convert to pytz timezone for compatibility
                     server_tz_str = str(system_tz)
-                    print(f"System timezone info: {server_tz_str}")
                     
                     # Try to create pytz timezone from the detected timezone
                     if hasattr(system_tz, 'zone'):
                         # It's already a pytz timezone
                         server_tz = system_tz
-                        print(f"Using existing pytz timezone: {server_tz}")
                     else:
                         # Try to match with pytz timezones
                         try:
@@ -540,26 +597,20 @@ def get_scheduler_status():
                             tz_match = re.search(r'tzfile\(\'([^\']+)\'\)', server_tz_str)
                             if tz_match:
                                 server_tz = pytz.timezone(tz_match.group(1))
-                                print(f"Detected timezone from tzfile: {server_tz}")
                             else:
                                 # Second try: Handle simple timezone abbreviations like WAT, EST, etc.
                                 if server_tz_str in ['WAT']:
                                     # WAT is UTC+1 (West Africa Time)
                                     server_tz = pytz.timezone('Africa/Lagos')  # WAT timezone
-                                    print(f"Mapped {server_tz_str} to {server_tz}")
                                 elif server_tz_str in ['PST']:
                                     server_tz = pytz.timezone('US/Pacific')
-                                    print(f"Mapped {server_tz_str} to {server_tz}")
                                 elif server_tz_str in ['EST']:
                                     server_tz = pytz.timezone('US/Eastern')
-                                    print(f"Mapped {server_tz_str} to {server_tz}")
                                 elif server_tz_str in ['UTC']:
                                     server_tz = pytz.timezone('UTC')
-                                    print(f"Mapped {server_tz_str} to {server_tz}")
                                 else:
                                     # Third try: use UTC offset to find appropriate timezone
                                     offset = dt.datetime.now().astimezone().utcoffset()
-                                    print(f"System UTC offset: {offset}")
                                     hours_offset = offset.total_seconds() / 3600
                                     
                                     # Map common offsets to timezones
@@ -574,20 +625,14 @@ def get_scheduler_status():
                                     
                                     if hours_offset in offset_to_tz:
                                         server_tz = pytz.timezone(offset_to_tz[hours_offset])
-                                        print(f"Mapped offset {hours_offset} to {server_tz}")
                                     else:
                                         # Fallback: use UTC
                                         server_tz = pytz.timezone('UTC')
-                                        logger.info(f"Using UTC fallback for unknown offset: {offset}")
-                        except Exception as e:
+                        except:
                             server_tz = pytz.timezone('UTC')
-                            logger.info(f"Using UTC fallback due to timezone conversion error: {e}")
-                except Exception as e:
+                except:
                     # Final fallback to UTC
                     server_tz = pytz.timezone('UTC')
-                    logger.warning(f"Could not detect server timezone, using UTC as fallback: {e}")
-                
-                print(f"Final server timezone: {server_tz}")
                 
                 # Get current time in both timezones
                 now_utc = datetime.now(server_tz)
@@ -1368,6 +1413,192 @@ def start_local_chrome_setup():
             'error': str(e)
         }), 500
 
+@app.route('/api/login/chrome_setup', methods=['POST'])
+def start_chrome_login_setup():
+    """Start Chrome login setup integrated into the web interface"""
+    try:
+        import subprocess
+        import threading
+        import os
+        import time
+        import undetected_chromedriver as uc
+        from selenium.webdriver.chrome.options import Options
+        
+        # Clean up any existing flag files
+        flag_files = ['chrome_login_complete.flag', 'chrome_login_error.flag']
+        for flag_file in flag_files:
+            if os.path.exists(flag_file):
+                os.remove(flag_file)
+        
+        def run_integrated_chrome_setup():
+            """Run Chrome setup integrated with Instagram navigation"""
+            try:
+                logger.info("Starting integrated Chrome login setup")
+                
+                # Disable SSL warnings and create unverified SSL context (from setup_chromev1.py)
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                ssl._create_default_https_context = ssl._create_unverified_context
+                
+                # Use the same profile path as setup_chromev1.py
+                CUSTOM_PROFILE_PATH = os.path.join(os.getcwd(), "chrome_profile_instagram")
+                
+                # Create fresh profile directory if it doesn't exist
+                os.makedirs(CUSTOM_PROFILE_PATH, exist_ok=True)
+                logger.info(f"Using Chrome profile: {CUSTOM_PROFILE_PATH}")
+                
+                # Setup Chrome options (similar to setup_chromev1.py)
+                options = uc.ChromeOptions()
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-blink-features=AutomationControlled')
+
+                options.add_argument(f"--user-data-dir={CUSTOM_PROFILE_PATH}")
+                options.add_argument("--profile-directory=Default")
+                logger.info(f"Using Chrome profile: {CUSTOM_PROFILE_PATH}")
+
+                options.add_argument('--ignore-ssl-errors')
+                options.add_argument('--ignore-certificate-errors')
+                options.add_argument('--allow-running-insecure-content')
+                options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
+                
+                # Don't use detach mode - we want to wait for browser closure
+                # Keep the driver connected so we can detect when browser closes
+                
+                # Start Chrome driver
+                driver = uc.Chrome(options=options)
+                
+                # Navigate to Instagram
+                driver.get("https://www.instagram.com/")
+                logger.info("Chrome opened and navigated to Instagram")
+                
+                # Take a screenshot like setup_chromev1.py
+                try:
+                    driver.save_screenshot('instagram_chrome_login.png')
+                    logger.info("Captured screenshot of Instagram page")
+                except Exception as e:
+                    logger.error(f"Failed to capture screenshot: {e}")
+                
+                # Wait for user to manually log in and close the browser
+                logger.info("Waiting for user to log in manually and close the browser...")
+                
+                try:
+                    # Keep checking if the browser is still open
+                    # This will block until the browser is closed or an error occurs
+                    while True:
+                        try:
+                            # Try to get the current URL - this will fail if browser is closed
+                            current_url = driver.current_url
+                            time.sleep(2)  # Check every 2 seconds
+                        except Exception as e:
+                            # Browser was closed or connection lost
+                            logger.info("Browser was closed by user")
+                            break
+                            
+                except Exception as e:
+                    logger.info(f"Browser session ended: {e}")
+                
+                finally:
+                    # Ensure driver is properly closed
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                
+                # Now that browser is closed, update .env file
+                logger.info("Browser closed, updating .env file with profile path...")
+                update_env_file_with_profile(CUSTOM_PROFILE_PATH)
+                
+                # Set a flag to indicate login completion
+                with open('chrome_login_complete.flag', 'w') as f:
+                    f.write(f"Login completed at {datetime.now().isoformat()}")
+                
+                logger.info("Chrome login setup completed successfully")
+                
+            except Exception as e:
+                logger.error(f"Error in integrated Chrome setup: {e}")
+                # Set error flag
+                with open('chrome_login_error.flag', 'w') as f:
+                    f.write(f"Error: {str(e)}")
+        
+        def update_env_file_with_profile(profile_path):
+            """Update the .env file with the custom profile path"""
+            try:
+                # Read existing .env file
+                env_lines = []
+                if os.path.exists('.env'):
+                    with open('.env', 'r') as f:
+                        env_lines = f.readlines()
+                
+                # Check if CHROME_PROFILE_PATH already exists
+                profile_path_exists = False
+                for i, line in enumerate(env_lines):
+                    if line.startswith('CHROME_PROFILE_PATH='):
+                        env_lines[i] = f'CHROME_PROFILE_PATH={profile_path}\n'
+                        profile_path_exists = True
+                        break
+                
+                # Add CHROME_PROFILE_PATH if it doesn't exist
+                if not profile_path_exists:
+                    env_lines.append(f'CHROME_PROFILE_PATH={profile_path}\n')
+                
+                # Write back to .env file
+                with open('.env', 'w') as f:
+                    f.writelines(env_lines)
+                
+                logger.info(f"Updated .env file with CHROME_PROFILE_PATH={profile_path}")
+                
+            except Exception as e:
+                logger.error(f"Failed to update .env file: {e}")
+        
+        # Start Chrome setup in background thread
+        setup_thread = threading.Thread(target=run_integrated_chrome_setup, daemon=True)
+        setup_thread.start()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Chrome browser opened at Instagram. Please log in manually and close the browser when done.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting Chrome login setup: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/login/chrome_status')
+def get_chrome_login_status():
+    """Check the status of Chrome login process"""
+    try:
+        # Check for completion flag
+        if os.path.exists('chrome_login_complete.flag'):
+            return jsonify({
+                'status': 'completed',
+                'message': 'Login completed successfully! Your session has been saved.'
+            })
+        
+        # Check for error flag
+        if os.path.exists('chrome_login_error.flag'):
+            with open('chrome_login_error.flag', 'r') as f:
+                error_msg = f.read().strip()
+            return jsonify({
+                'status': 'error',
+                'message': f'Login failed: {error_msg}'
+            })
+        
+        # Neither flag exists - still in progress
+        return jsonify({
+            'status': 'in_progress',
+            'message': 'Waiting for you to complete login and close the browser...'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error checking Chrome login status: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error checking status: {str(e)}'
+        }), 500
+
 @app.route('/health')
 def health_check():
     """Health check endpoint for Docker"""
@@ -1397,9 +1628,236 @@ def health_check():
             'timestamp': datetime.now().isoformat()
         }), 500
 
+# Global scheduler manager
+scheduler_manager = None
+
+class SchedulerManager:
+    """Manages the background scheduler thread"""
+    
+    def __init__(self):
+        self.scheduler_thread = None
+        self.stop_event = threading.Event()
+        self.is_running = False
+        self.poster = None
+        
+    def start_scheduler(self):
+        """Start the scheduler in a background thread"""
+        if self.is_running:
+            logger.info("Scheduler is already running")
+            return False
+            
+        self.stop_event.clear()
+        self.is_running = True
+        
+        def run_scheduler():
+            """Background scheduler function"""
+            try:
+                logger.info("Starting background scheduler thread")
+                self.poster = InstagramPoster()
+                
+                # Import schedule here to avoid circular imports
+                import schedule
+                
+                # Clear any existing jobs
+                schedule.clear()
+                
+                # Track current settings to detect changes
+                last_times = None
+                last_timezone = None
+                
+                while not self.stop_event.is_set():
+                    try:
+                        # Reload settings to pick up any changes
+                        self.poster.settings = self.poster.load_settings()
+                        current_times = self.poster.get_setting('posting_times', ['09:00', '13:00', '17:00', '21:00'])
+                        current_timezone = self.poster.get_setting('timezone', 'UTC')
+                        
+                        # Check if scheduler is disabled
+                        if not self.poster.get_setting('enabled', True):
+                            schedule.clear()
+                            last_times = None
+                            last_timezone = None
+                            time.sleep(60)
+                            continue
+                        
+                        # If settings changed, reschedule
+                        if last_times != current_times or last_timezone != current_timezone:
+                            schedule.clear()
+                            
+                            try:
+                                # Convert user timezone times to server time and schedule
+                                user_tz = pytz.timezone(current_timezone)
+                                
+                                # Automatically detect server timezone using system's local time
+                                try:
+                                    import datetime as dt
+                                    system_tz = dt.datetime.now().astimezone().tzinfo
+                                    server_tz_str = str(system_tz)
+                                    
+                                    if hasattr(system_tz, 'zone'):
+                                        server_tz = system_tz
+                                    else:
+                                        try:
+                                            import re
+                                            tz_match = re.search(r'tzfile\(\'([^\']+)\'\)', server_tz_str)
+                                            if tz_match:
+                                                server_tz = pytz.timezone(tz_match.group(1))
+                                            else:
+                                                if server_tz_str in ['WAT']:
+                                                    server_tz = pytz.timezone('Africa/Lagos')
+                                                elif server_tz_str in ['PST']:
+                                                    server_tz = pytz.timezone('US/Pacific')
+                                                elif server_tz_str in ['EST']:
+                                                    server_tz = pytz.timezone('US/Eastern')
+                                                elif server_tz_str in ['UTC']:
+                                                    server_tz = pytz.timezone('UTC')
+                                                else:
+                                                    offset = dt.datetime.now().astimezone().utcoffset()
+                                                    hours_offset = offset.total_seconds() / 3600
+                                                    
+                                                    offset_to_tz = {
+                                                        0: 'UTC',
+                                                        1: 'Europe/Berlin',
+                                                        -5: 'US/Eastern',
+                                                        -8: 'US/Pacific',
+                                                        8: 'Asia/Shanghai',
+                                                        9: 'Asia/Tokyo',
+                                                    }
+                                                    
+                                                    if hours_offset in offset_to_tz:
+                                                        server_tz = pytz.timezone(offset_to_tz[hours_offset])
+                                                    else:
+                                                        server_tz = pytz.timezone('UTC')
+                                        except:
+                                            server_tz = pytz.timezone('UTC')
+                                except:
+                                    server_tz = pytz.timezone('UTC')
+                                
+                                # Get today's date for conversion
+                                today = datetime.now().date()
+                                
+                                for time_str in current_times:
+                                    try:
+                                        hour, minute = map(int, time_str.split(':'))
+                                        target_datetime = datetime.combine(today, datetime.min.time().replace(hour=hour, minute=minute))
+                                        user_time = user_tz.localize(target_datetime)
+                                        server_time = user_time.astimezone(server_tz)
+                                        server_time_str = server_time.strftime("%H:%M")
+                                        
+                                        schedule.every().day.at(server_time_str).do(self.poster.post_monthly_content)
+                                        logger.info(f"Scheduled posting: {time_str} {current_timezone} -> {server_time_str} server time")
+                                    except Exception as e:
+                                        logger.error(f"Error scheduling time {time_str}: {e}")
+                                
+                                last_times = current_times[:]
+                                last_timezone = current_timezone
+                                logger.info(f"Successfully scheduled {len(current_times)} posting times")
+                                
+                            except Exception as e:
+                                logger.error(f"Timezone error: {e}. Using UTC as fallback.")
+                        
+                        # Run pending jobs
+                        schedule.run_pending()
+                        
+                    except Exception as e:
+                        logger.error(f"Error in scheduler loop: {e}")
+                    
+                    # Check for stop every 60 seconds
+                    time.sleep(60)
+                    
+            except Exception as e:
+                logger.error(f"Fatal error in scheduler thread: {e}")
+            finally:
+                logger.info("Scheduler thread stopped")
+                self.is_running = False
+        
+        self.scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+        self.scheduler_thread.start()
+        logger.info("Scheduler thread started")
+        return True
+    
+    def stop_scheduler(self):
+        """Stop the scheduler thread"""
+        if not self.is_running:
+            logger.info("Scheduler is not running")
+            return False
+            
+        logger.info("Stopping scheduler thread...")
+        self.stop_event.set()
+        
+        if self.scheduler_thread and self.scheduler_thread.is_alive():
+            self.scheduler_thread.join(timeout=5)
+            
+        self.is_running = False
+        logger.info("Scheduler stopped")
+        return True
+    
+    def get_status(self):
+        """Get scheduler status"""
+        return {
+            'running': self.is_running,
+            'thread_alive': self.scheduler_thread.is_alive() if self.scheduler_thread else False
+        }
+
+def initialize_scheduler():
+    """Initialize and start the scheduler by default"""
+    global scheduler_manager
+    try:
+        scheduler_manager = SchedulerManager()
+        
+        # Check if scheduler should be enabled by default
+        settings_file = Path('scheduler_settings.json')
+        if settings_file.exists():
+            try:
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                    if settings.get('enabled', True):  # Default to True if not specified
+                        logger.info("Starting scheduler automatically on app startup")
+                        scheduler_manager.start_scheduler()
+                    else:
+                        logger.info("Scheduler is disabled in settings, not starting automatically")
+            except Exception as e:
+                logger.error(f"Error reading settings, starting scheduler anyway: {e}")
+                scheduler_manager.start_scheduler()
+        else:
+            # No settings file, start scheduler with default settings
+            logger.info("No settings file found, starting scheduler with defaults")
+            scheduler_manager.start_scheduler()
+            
+    except Exception as e:
+        logger.error(f"Error initializing scheduler: {e}")
+
+def cleanup_scheduler():
+    """Cleanup scheduler on app shutdown"""
+    global scheduler_manager
+    if scheduler_manager:
+        logger.info("Shutting down scheduler...")
+        scheduler_manager.stop_scheduler()
+
+# Register cleanup function
+atexit.register(cleanup_scheduler)
+
+# Signal handlers for graceful shutdown
+def signal_handler(sig, frame):
+    logger.info(f"Received signal {sig}, shutting down gracefully...")
+    cleanup_scheduler()
+    exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
 if __name__ == '__main__':
     # Create upload folder if it doesn't exist
-    UPLOAD_FOLDER.mkdir(exist_ok=True)
+    upload_folder = Path('content')
+    upload_folder.mkdir(exist_ok=True)
     
-    # Run the app
-    app.run(debug=True, host='0.0.0.0', port=5003) 
+    # Initialize scheduler
+    initialize_scheduler()
+    
+    # Start the Flask app
+    print("🚀 Starting Instagram Auto Poster Web Interface...")
+    print("📱 Visit http://localhost:5000 to manage your content")
+    print("⚙️  Scheduler will run automatically in the background")
+    print("🛑 Press Ctrl+C to stop")
+    
+    app.run(host='0.0.0.0', port=5003, debug=False) 

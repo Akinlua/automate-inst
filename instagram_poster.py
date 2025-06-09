@@ -247,7 +247,7 @@ class InstagramPoster:
             options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
 
 
-            # options.add_argument("--headless")
+            options.add_argument("--headless")
 
 
             self.driver = uc.Chrome(options=options)
@@ -1069,7 +1069,7 @@ class InstagramPoster:
             ]
             month_name = month_names[current_month - 1]
         
-            final_caption = f"{enhanced_text}\n\n❤️ {month_name} Content\n\n#instagram #monthly #content"
+            final_caption = f"{enhanced_text}"
             print(f"Final caption: {final_caption}")
             print(f"Images: {images}")
         
@@ -1156,6 +1156,7 @@ class InstagramPoster:
                 # Reload settings to pick up any changes
                 self.settings = self.load_settings()
                 current_times = self.get_setting('posting_times', ['09:00', '13:00', '17:00', '21:00'])
+                print(f"Current times: {current_times}")
                 current_timezone = self.get_setting('timezone', 'UTC')
                 
                 # Check if scheduler is disabled

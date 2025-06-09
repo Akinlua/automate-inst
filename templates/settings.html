@@ -29,6 +29,38 @@
                     </div>
                 </div>
                 
+                <!-- One-Click Chrome Login Option (shown when not logged in) -->
+                <div id="chromeLoginSection" style="display: none;">
+                    <div class="alert alert-primary mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <h6 class="alert-heading mb-2">
+                                    <i class="fab fa-chrome me-2"></i>
+                                    One-Click Chrome Login
+                                </h6>
+                                <p class="mb-2">
+                                    Open a Chrome browser window with Instagram pre-loaded. 
+                                    Log in manually and your session will be automatically saved.
+                                </p>
+                                <p class="mb-0 text-muted small">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Perfect for easy manual login - no terminal commands needed!
+                                </p>
+                            </div>
+                            <div class="flex-shrink-0 ms-3">
+                                <button type="button" class="btn btn-primary" onclick="startChromeLogin()" id="chromeLoginBtn">
+                                    <i class="fab fa-chrome me-1"></i>
+                                    Open Chrome & Login
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <span class="text-muted">OR</span>
+                    </div>
+                </div>
+                
                 <!-- Login Form (hidden by default) -->
                 <div id="loginFormSection" style="display: none;">
                     <div class="alert alert-info mb-4">
@@ -315,7 +347,7 @@
             <div class="card-header">
                 <h5 class="mb-0">
                     <i class="fas fa-info-circle me-2"></i>
-                    Scheduler Status
+                    Scheduler Status & Controls
                 </h5>
             </div>
             <div class="card-body">
@@ -325,6 +357,33 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                         <p class="mt-2 text-muted">Loading scheduler status...</p>
+                    </div>
+                </div>
+                
+                <!-- Scheduler Controls -->
+                <div class="mt-4 pt-3 border-top">
+                    <h6 class="mb-3">
+                        <i class="fas fa-play-circle me-2"></i>
+                        Scheduler Controls
+                    </h6>
+                    <div class="d-flex gap-2 mb-3">
+                        <button id="startSchedulerBtn" class="btn btn-success" onclick="startScheduler()" disabled>
+                            <i class="fas fa-play me-1"></i>
+                            Start Scheduler
+                        </button>
+                        <button id="stopSchedulerBtn" class="btn btn-danger" onclick="stopScheduler()" disabled>
+                            <i class="fas fa-stop me-1"></i>
+                            Stop Scheduler
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="loadSchedulerStatus()">
+                            <i class="fas fa-sync-alt me-1"></i>
+                            Refresh Status
+                        </button>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> The scheduler runs automatically when the web app starts. 
+                        Use these controls to manually start or stop the background scheduler process.
                     </div>
                 </div>
             </div>
@@ -601,6 +660,8 @@ function loadSchedulerStatus() {
 // Display scheduler status
 function displaySchedulerStatus(data, errorType = null) {
     const container = document.getElementById('schedulerStatus');
+    const startBtn = document.getElementById('startSchedulerBtn');
+    const stopBtn = document.getElementById('stopSchedulerBtn');
     
     if (errorType === 'error') {
         container.innerHTML = `
@@ -609,12 +670,34 @@ function displaySchedulerStatus(data, errorType = null) {
                 Failed to load scheduler status
             </div>
         `;
+        // Disable both buttons if error
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = true;
         return;
     }
     
     const enabledBadge = data.enabled 
         ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Enabled</span>'
         : '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>Disabled</span>';
+    
+    const runningBadge = data.running 
+        ? '<span class="badge bg-success ms-2"><i class="fas fa-play me-1"></i>Running</span>'
+        : '<span class="badge bg-secondary ms-2"><i class="fas fa-stop me-1"></i>Stopped</span>';
+    
+    // Update button states based on running status
+    if (startBtn && stopBtn) {
+        if (data.running) {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-check me-1"></i>Already Running';
+            stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop Scheduler';
+        } else {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start Scheduler';
+            stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Not Running';
+        }
+    }
     
     const nextPostTime = data.next_post_time 
         ? `<div class="mb-2"><strong>Next Post:</strong> ${data.next_post_time}</div>`
@@ -655,15 +738,12 @@ function displaySchedulerStatus(data, errorType = null) {
     }
     
     container.innerHTML = `
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h6 class="mb-1">Scheduler Status</h6>
+        <div class="mb-3">
+            <h6 class="mb-2">Current Status</h6>
+            <div class="d-flex align-items-center">
                 ${enabledBadge}
+                ${runningBadge}
             </div>
-            <button class="btn btn-sm btn-outline-primary" onclick="loadSchedulerStatus()">
-                <i class="fas fa-sync-alt me-1"></i>
-                Refresh
-            </button>
         </div>
         ${nextPostTime}
         ${lastPostTime}
@@ -747,8 +827,12 @@ function checkInstagramLoginStatus() {
 
 function displayLoginStatus(data) {
     const statusSection = document.getElementById('loginStatusSection');
+    const chromeSection = document.getElementById('chromeLoginSection');
     
     if (data.logged_in) {
+        // Hide Chrome login section when logged in
+        chromeSection.style.display = 'none';
+        
         statusSection.innerHTML = `
             <div class="alert alert-success">
                 <div class="d-flex justify-content-between align-items-center">
@@ -768,6 +852,9 @@ function displayLoginStatus(data) {
             </div>
         `;
     } else {
+        // Show Chrome login section when not logged in
+        chromeSection.style.display = 'block';
+        
         statusSection.innerHTML = `
             <div class="alert alert-warning">
                 <h6 class="alert-heading mb-2">
@@ -903,6 +990,7 @@ function showLoginForm() {
 
 function hideAllSections() {
     document.getElementById('loginStatusSection').style.display = 'none';
+    document.getElementById('chromeLoginSection').style.display = 'none';
     document.getElementById('loginFormSection').style.display = 'none';
     document.getElementById('verificationSection').style.display = 'none';
     document.getElementById('setupProgressSection').style.display = 'none';
@@ -1620,6 +1708,91 @@ function startLocalChrome() {
     });
 }
 
+function startChromeLogin() {
+    const chromeBtn = document.getElementById('chromeLoginBtn');
+    
+    // Update button state
+    chromeBtn.disabled = true;
+    chromeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Opening Chrome...';
+    
+    showNotification('Opening Chrome browser for Instagram login...', 'info');
+    
+    // Make API call to start Chrome login
+    fetch('/api/login/chrome_setup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Chrome opened successfully! Please log in to Instagram manually, then close the browser when done. Your session will be automatically saved.', 'success');
+            
+            // Start monitoring for login completion
+            startChromeLoginMonitoring();
+        } else {
+            showNotification(`Failed to open Chrome: ${data.error}`, 'error');
+            resetChromeLoginBtn();
+        }
+    })
+    .catch(error => {
+        console.error('Error starting Chrome login:', error);
+        showNotification('Network error starting Chrome login', 'error');
+        resetChromeLoginBtn();
+    });
+}
+
+function startChromeLoginMonitoring() {
+    // Update button to show monitoring state
+    const chromeBtn = document.getElementById('chromeLoginBtn');
+    chromeBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Waiting for Login...';
+    
+    // Monitor login status every 3 seconds
+    const monitorInterval = setInterval(() => {
+        fetch('/api/login/chrome_status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'completed') {
+                    // Login successful - stop monitoring and update UI
+                    clearInterval(monitorInterval);
+                    showNotification(data.message || 'Login successful! Your session has been saved.', 'success');
+                    checkInstagramLoginStatus(); // Refresh the entire login status
+                } else if (data.status === 'error') {
+                    // Login failed - stop monitoring and show error
+                    clearInterval(monitorInterval);
+                    showNotification(data.message || 'Login failed. Please try again.', 'error');
+                    resetChromeLoginBtn();
+                } else if (data.status === 'in_progress') {
+                    // Still waiting for login - update button text with current message
+                    chromeBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Waiting for Login...';
+                    // Show status message if available
+                    if (data.message) {
+                        console.log('Chrome login status:', data.message);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking Chrome login status:', error);
+            });
+    }, 3000); // Check every 3 seconds
+    
+    // Stop monitoring after 10 minutes
+    setTimeout(() => {
+        clearInterval(monitorInterval);
+        if (chromeBtn.innerHTML.includes('Waiting for Login')) {
+            showNotification('Login monitoring stopped. You can manually refresh the page to check login status.', 'info');
+            resetChromeLoginBtn();
+        }
+    }, 600000); // 10 minutes
+}
+
+function resetChromeLoginBtn() {
+    const chromeBtn = document.getElementById('chromeLoginBtn');
+    chromeBtn.disabled = false;
+    chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome & Login';
+}
+
 function startVerificationCountdownMonitoring() {
     // Clear any existing interval
     if (verificationCountdownInterval) {
@@ -1667,6 +1840,82 @@ function stopVerificationCountdownMonitoring() {
         clearInterval(verificationCountdownInterval);
         verificationCountdownInterval = null;
     }
+}
+
+// Start scheduler function
+function startScheduler() {
+    const startBtn = document.getElementById('startSchedulerBtn');
+    const stopBtn = document.getElementById('stopSchedulerBtn');
+    
+    // Disable button and show loading
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Starting...';
+    
+    fetch('/api/scheduler/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Scheduler started successfully!', 'success');
+            // Refresh status after a short delay
+            setTimeout(() => {
+                loadSchedulerStatus();
+            }, 1000);
+        } else {
+            showNotification('Failed to start scheduler: ' + data.message, 'error');
+            // Reset button state
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start Scheduler';
+        }
+    })
+    .catch(error => {
+        showNotification('Error starting scheduler: ' + error, 'error');
+        // Reset button state
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start Scheduler';
+    });
+}
+
+// Stop scheduler function
+function stopScheduler() {
+    const startBtn = document.getElementById('startSchedulerBtn');
+    const stopBtn = document.getElementById('stopSchedulerBtn');
+    
+    // Disable button and show loading
+    stopBtn.disabled = true;
+    stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Stopping...';
+    
+    fetch('/api/scheduler/stop', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Scheduler stopped successfully!', 'success');
+            // Refresh status after a short delay
+            setTimeout(() => {
+                loadSchedulerStatus();
+            }, 1000);
+        } else {
+            showNotification('Failed to stop scheduler: ' + data.message, 'error');
+            // Reset button state
+            stopBtn.disabled = false;
+            stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop Scheduler';
+        }
+    })
+    .catch(error => {
+        showNotification('Error stopping scheduler: ' + error, 'error');
+        // Reset button state
+        stopBtn.disabled = false;
+        stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop Scheduler';
+    });
 }
 </script>
 {% endblock %} 
