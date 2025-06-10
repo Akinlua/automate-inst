@@ -188,16 +188,26 @@ class ChromeProfileSetup:
                 with open('.env', 'r') as f:
                     env_lines = f.readlines()
             
+            # Ensure all lines end with newline
+            for i, line in enumerate(env_lines):
+                if not line.endswith('\n'):
+                    env_lines[i] = line + '\n'
+            
             # Check if CHROME_PROFILE_PATH already exists
             profile_path_exists = False
             for i, line in enumerate(env_lines):
-                if line.startswith('CHROME_PROFILE_PATH='):
+                if line.strip().startswith('CHROME_PROFILE_PATH='):
                     env_lines[i] = f'CHROME_PROFILE_PATH={CUSTOM_PROFILE_PATH}\n'
                     profile_path_exists = True
                     break
             
             # Add CHROME_PROFILE_PATH if it doesn't exist
             if not profile_path_exists:
+                # Ensure there's a newline before adding new variable if file isn't empty
+                if env_lines and not env_lines[-1].endswith('\n'):
+                    env_lines[-1] = env_lines[-1] + '\n'
+                
+                # Add the new environment variable on a new line
                 env_lines.append(f'CHROME_PROFILE_PATH={CUSTOM_PROFILE_PATH}\n')
             
             # Write back to .env file

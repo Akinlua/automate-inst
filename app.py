@@ -1247,12 +1247,13 @@ def logout_instagram():
 def check_login_status():
     """Check if user is currently logged in"""
     try:
-        is_logged_in = web_setup.is_logged_in()
-        # Load environment variables
+        # Reload environment variables first to get latest profile path
         load_dotenv()
         
+        is_logged_in = web_setup.is_logged_in()
         profile_path = os.getenv('CHROME_PROFILE_PATH')
-        print(f"Profile path: {profile_path}")
+        
+        logger.info(f"Login status check - logged_in: {is_logged_in}, profile_path: {profile_path}")
         
         return jsonify({
             'logged_in': is_logged_in,
@@ -1432,6 +1433,7 @@ def start_chrome_login_setup():
         
         def run_integrated_chrome_setup():
             """Run Chrome setup integrated with Instagram navigation"""
+            driver = None
             try:
                 logger.info("Starting integrated Chrome login setup")
                 
@@ -1471,12 +1473,16 @@ def start_chrome_login_setup():
                 driver.get("https://www.instagram.com/")
                 logger.info("Chrome opened and navigated to Instagram")
                 
+                # Wait a moment for page to load before taking screenshot
+                time.sleep(3)
+                
                 # Take a screenshot like setup_chromev1.py
                 try:
+                    # Check if browser is still open before taking screenshot
                     driver.save_screenshot('instagram_chrome_login.png')
                     logger.info("Captured screenshot of Instagram page")
                 except Exception as e:
-                    logger.error(f"Failed to capture screenshot: {e}")
+                    logger.warning(f"Could not capture screenshot (browser may have closed): {e}")
                 
                 # Wait for user to manually log in and close the browser
                 logger.info("Waiting for user to log in manually and close the browser...")
@@ -1490,23 +1496,30 @@ def start_chrome_login_setup():
                             current_url = driver.current_url
                             time.sleep(2)  # Check every 2 seconds
                         except Exception as e:
-                            # Browser was closed or connection lost
-                            logger.info("Browser was closed by user")
+                            # Check if this is a browser closure exception (expected behavior)
+                            error_msg = str(e).lower()
+                            if any(keyword in error_msg for keyword in [
+                                'target window already closed',
+                                'no such window',
+                                'web view not found',
+                                'session not created',
+                                'connection refused'
+                            ]):
+                                logger.info("Browser was closed by user (detected via expected exception)")
+                            else:
+                                logger.info(f"Browser session ended: {e}")
                             break
                             
                 except Exception as e:
-                    logger.info(f"Browser session ended: {e}")
-                
-                finally:
-                    # Ensure driver is properly closed
-                    try:
-                        driver.quit()
-                    except:
-                        pass
+                    logger.info(f"Browser session monitoring ended: {e}")
                 
                 # Now that browser is closed, update .env file
                 logger.info("Browser closed, updating .env file with profile path...")
                 update_env_file_with_profile(CUSTOM_PROFILE_PATH)
+                
+                # Reload environment variables to pick up the new profile path
+                load_dotenv()
+                logger.info("Reloaded environment variables")
                 
                 # Set a flag to indicate login completion
                 with open('chrome_login_complete.flag', 'w') as f:
@@ -1519,6 +1532,14 @@ def start_chrome_login_setup():
                 # Set error flag
                 with open('chrome_login_error.flag', 'w') as f:
                     f.write(f"Error: {str(e)}")
+            finally:
+                # Ensure driver is properly closed
+                if driver:
+                    try:
+                        driver.quit()
+                        logger.info("Chrome driver closed successfully")
+                    except Exception as e:
+                        logger.warning(f"Error closing Chrome driver: {e}")
         
         def update_env_file_with_profile(profile_path):
             """Update the .env file with the custom profile path"""
@@ -1856,7 +1877,7 @@ if __name__ == "__main__":
     
     # Start the Flask app
     print("🚀 Starting Instagram Auto Poster Web Interface...")
-    print("📱 Visit http://localhost:5000 to manage your content")
+    print("📱 Visit http://localhost:5003 to manage your content")
     print("⚙️  Scheduler will run automatically in the background")
     print("🛑 Press Ctrl+C to stop")
     

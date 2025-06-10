@@ -20,14 +20,14 @@
             </div>
             <div class="card-body">
                 <!-- Login Status Display -->
-                <div id="loginStatusSection">
+                <!-- <div id="loginStatusSection">
                     <div class="text-center py-3">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
                         <p class="mt-2 text-muted">Checking login status...</p>
                     </div>
-                </div>
+                </div> -->
                 
                 <!-- One-Click Chrome Login Option (shown when not logged in) -->
                 <div id="chromeLoginSection" style="display: none;">
@@ -830,44 +830,101 @@ function displayLoginStatus(data) {
     const chromeSection = document.getElementById('chromeLoginSection');
     
     if (data.logged_in) {
-        // Hide Chrome login section when logged in
-        chromeSection.style.display = 'none';
+        // Always show Chrome login section - even when logged in for convenience
+        chromeSection.style.display = 'block';
         
-        statusSection.innerHTML = `
-            <div class="alert alert-success">
+        // Update the Chrome section content for logged-in users
+        chromeSection.innerHTML = `
+            <div class="alert alert-success mb-4">
                 <div class="d-flex justify-content-between align-items-center">
-                    <div>
+                    <div class="flex-grow-1">
                         <h6 class="alert-heading mb-2">
-                            <i class="fas fa-check-circle me-2"></i>
-                            Successfully Logged In
+                            <i class="fab fa-chrome me-2"></i>
+                            Quick Chrome Access
                         </h6>
-                        <p class="mb-0">You are currently logged in to Instagram and ready to post content.</p>
-                        ${data.chrome_profile_path ? `<small class="text-muted">Profile: ${data.chrome_profile_path}</small>` : ''}
+                        <p class="mb-2">
+                            Open Chrome to view your Instagram account or perform additional login tasks.
+                        </p>
+                        <p class="mb-0 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Your session is already saved - this just opens Chrome for convenience!
+                        </p>
                     </div>
-                    <button type="button" class="btn btn-outline-danger" onclick="logoutInstagram()">
-                        <i class="fas fa-sign-out-alt me-1"></i>
-                        Logout
-                    </button>
+                    <div class="flex-shrink-0 ms-3">
+                        <button type="button" class="btn btn-outline-primary" onclick="startChromeLogin()" id="chromeLoginBtn">
+                            <i class="fab fa-chrome me-1"></i>
+                            Open Chrome
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
-    } else {
-        // Show Chrome login section when not logged in
-        chromeSection.style.display = 'block';
         
-        statusSection.innerHTML = `
-            <div class="alert alert-warning">
-                <h6 class="alert-heading mb-2">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Not Logged In
-                </h6>
-                <p class="mb-2">You need to log in to Instagram to enable automated posting.</p>
-                <button type="button" class="btn btn-primary" onclick="showLoginForm()">
-                    <i class="fas fa-sign-in-alt me-1"></i>
-                    Login to Instagram
-                </button>
+        // statusSection.innerHTML = `
+        //     <div class="alert alert-success">
+        //         <div class="d-flex justify-content-between align-items-center">
+        //             <div>
+        //                 <h6 class="alert-heading mb-2">
+        //                     <i class="fas fa-check-circle me-2"></i>
+        //                     Successfully Logged In
+        //                 </h6>
+        //                 <p class="mb-0">You are currently logged in to Instagram and ready to post content.</p>
+        //                 ${data.chrome_profile_path ? `<small class="text-muted">Profile: ${data.chrome_profile_path}</small>` : ''}
+        //             </div>
+        //             <button type="button" class="btn btn-outline-danger" onclick="logoutInstagram()">
+        //                 <i class="fas fa-sign-out-alt me-1"></i>
+        //                 Logout
+        //             </button>
+        //         </div>
+        //     </div>
+        // `;
+    } else {
+        // Show Chrome login section when not logged in (original functionality)
+        chromeSection.style.display = 'block';
+        chromeSection.innerHTML = `
+            <div class="alert alert-primary mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-2">
+                            <i class="fab fa-chrome me-2"></i>
+                            One-Click Chrome Login
+                        </h6>
+                        <p class="mb-2">
+                            Open a Chrome browser window with Instagram pre-loaded. 
+                            Log in manually and your session will be automatically saved.
+                        </p>
+                        <p class="mb-0 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Perfect for easy manual login - no terminal commands needed!
+                        </p>
+                    </div>
+                    <div class="flex-shrink-0 ms-3">
+                        <button type="button" class="btn btn-primary" onclick="startChromeLogin()" id="chromeLoginBtn">
+                            <i class="fab fa-chrome me-1"></i>
+                            Open Chrome & Login
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mb-4">
+                <span class="text-muted">OR</span>
             </div>
         `;
+        
+        // statusSection.innerHTML = `
+        //     <div class="alert alert-warning">
+        //         <h6 class="alert-heading mb-2">
+        //             <i class="fas fa-exclamation-triangle me-2"></i>
+        //             Not Logged In
+        //         </h6>
+        //         <p class="mb-2">You need to log in to Instagram to enable automated posting.</p>
+        //         <button type="button" class="btn btn-primary" onclick="showLoginForm()">
+        //             <i class="fas fa-sign-in-alt me-1"></i>
+        //             Login to Instagram
+        //         </button>
+        //     </div>
+        // `;
     }
 }
 
@@ -1748,6 +1805,9 @@ function startChromeLoginMonitoring() {
     const chromeBtn = document.getElementById('chromeLoginBtn');
     chromeBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Waiting for Login...';
     
+    // Show status update
+    showNotification('Waiting for you to complete login and close the browser...', 'info');
+    
     // Monitor login status every 3 seconds
     const monitorInterval = setInterval(() => {
         fetch('/api/login/chrome_status')
@@ -1756,8 +1816,12 @@ function startChromeLoginMonitoring() {
                 if (data.status === 'completed') {
                     // Login successful - stop monitoring and update UI
                     clearInterval(monitorInterval);
-                    showNotification(data.message || 'Login successful! Your session has been saved.', 'success');
-                    checkInstagramLoginStatus(); // Refresh the entire login status
+                    showNotification('✅ Login completed successfully! Browser was closed and your session has been saved.', 'success');
+                    
+                    // Wait a moment then refresh the entire login status
+                    setTimeout(() => {
+                        checkInstagramLoginStatus();
+                    }, 1000);
                 } else if (data.status === 'error') {
                     // Login failed - stop monitoring and show error
                     clearInterval(monitorInterval);
@@ -1766,9 +1830,11 @@ function startChromeLoginMonitoring() {
                 } else if (data.status === 'in_progress') {
                     // Still waiting for login - update button text with current message
                     chromeBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Waiting for Login...';
-                    // Show status message if available
-                    if (data.message) {
-                        console.log('Chrome login status:', data.message);
+                    
+                    // Update notification with helpful status if available
+                    if (data.message && data.message.includes('Waiting for you to complete login')) {
+                        // Show a more helpful message
+                        console.log('Status: Waiting for browser to be closed after login...');
                     }
                 }
             })
@@ -1777,20 +1843,34 @@ function startChromeLoginMonitoring() {
             });
     }, 3000); // Check every 3 seconds
     
-    // Stop monitoring after 10 minutes
+    // Stop monitoring after 15 minutes (increased from 10)
     setTimeout(() => {
         clearInterval(monitorInterval);
         if (chromeBtn.innerHTML.includes('Waiting for Login')) {
-            showNotification('Login monitoring stopped. You can manually refresh the page to check login status.', 'info');
+            showNotification('Login monitoring stopped after 15 minutes. You can manually refresh the page to check login status or click the Chrome button again.', 'warning');
             resetChromeLoginBtn();
         }
-    }, 600000); // 10 minutes
+    }, 900000); // 15 minutes
 }
 
 function resetChromeLoginBtn() {
     const chromeBtn = document.getElementById('chromeLoginBtn');
     chromeBtn.disabled = false;
-    chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome & Login';
+    
+    // Check if user is logged in to show appropriate button text
+    fetch('/api/login/check')
+        .then(response => response.json())
+        .then(data => {
+            if (data.logged_in) {
+                chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome';
+            } else {
+                chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome & Login';
+            }
+        })
+        .catch(() => {
+            // Default to login text if check fails
+            chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome & Login';
+        });
 }
 
 function startVerificationCountdownMonitoring() {

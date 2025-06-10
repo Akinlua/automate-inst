@@ -9,8 +9,15 @@ import threading
 import platform
 import time
 import signal
-import psutil
 from pathlib import Path
+
+# Try to import psutil, but don't fail if it's not available yet
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("Warning: psutil not available yet - some features will be limited until setup completes")
 
 class InstagramAutoPoserInstaller:
     def __init__(self):
@@ -240,6 +247,17 @@ class InstagramAutoPoserInstaller:
     
     def is_our_server_running(self):
         """Check if our specific Instagram Auto Poster server is running"""
+        if not PSUTIL_AVAILABLE:
+            # If psutil not available, do basic port check only
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex(('localhost', 5003))
+                sock.close()
+                return result == 0
+            except:
+                return False
+        
         try:
             # Method 1: Check if port 5003 is in use AND if it responds to HTTP requests
             port_in_use = False
@@ -357,6 +375,26 @@ class InstagramAutoPoserInstaller:
     
     def find_and_kill_processes(self, process_name="python"):
         """Find and kill processes related to the app"""
+        if not PSUTIL_AVAILABLE:
+            self.log_message("⚠️ psutil not available - using basic process cleanup")
+            # Use basic OS commands for process cleanup
+            try:
+                if platform.system() == "Windows":
+                    # Use taskkill to find and kill python processes running app.py
+                    subprocess.run(["taskkill", "/f", "/im", "python.exe", "/fi", "WINDOWTITLE eq *app.py*"], 
+                                 capture_output=True)
+                    subprocess.run(["taskkill", "/f", "/im", "python3.exe", "/fi", "WINDOWTITLE eq *app.py*"], 
+                                 capture_output=True)
+                else:
+                    # Use pkill on Unix systems
+                    subprocess.run(["pkill", "-f", "app.py"], capture_output=True)
+                
+                self.log_message("✅ Basic process cleanup completed")
+                self.clear_server_state()
+            except Exception as e:
+                self.log_message(f"⚠️ Basic cleanup error: {str(e)}")
+            return
+        
         try:
             killed_any = False
             # Find processes by name containing app.py
@@ -488,7 +526,7 @@ class InstagramAutoPoserInstaller:
                 self.update_status("Verifying installation...")
                 
                 # Try to import critical modules
-                venv_python = self.app_dir / "venv" / "Scripts" / "python.exe" if platform.system() == "Windows" else self.app_dir / "venv" / "bin" / "python"
+                venv_python = self.app_dir / "venv" / "Scripts" / "python.exe"
                 
                 if venv_python.exists():
                     python_cmd = str(venv_python)
@@ -651,14 +689,37 @@ class InstagramAutoPoserInstaller:
             else:
                 self.log_message("✅ Import test passed - all modules available")
             
-            # Start Python directly without batch script
+            # Start Python with special Windows flags to prevent console buffering and freezing issues
+            startup_info = subprocess.STARTUPINFO()
+            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startup_info.wShowWindow = subprocess.SW_HIDE
+            
+            # Set environment variables to prevent Python from freezing
+            env = os.environ.copy()
+            env['PYTHONUNBUFFERED'] = '1'  # Force unbuffered output
+            env['PYTHONDONTWRITEBYTECODE'] = '1'  # Don't write .pyc files
+            env['PYTHONIOENCODING'] = 'utf-8'  # Force UTF-8 encoding
+            env['PYTHONLEGACYWINDOWSSTDIO'] = '1'  # Use legacy Windows stdio
+            env['FLASK_ENV'] = 'production'  # Set Flask to production mode
+            
+            # Additional Windows-specific environment variables
+            env['PYTHONUTF8'] = '1'  # Force UTF-8 mode
+            env['PYTHONFAULTHANDLER'] = '1'  # Enable fault handler
+            
             self.server_process = subprocess.Popen(
-                [python_cmd, "app.py"],
+                [python_cmd, "-u", "-X", "dev", "app.py"],  # -u prevents buffering, -X dev for better error handling
                 cwd=self.app_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,  # Prevent waiting for input
                 text=True,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                env=env,  # Use our custom environment
+                creationflags=(
+                    subprocess.CREATE_NEW_PROCESS_GROUP | 
+                    subprocess.DETACHED_PROCESS |
+                    subprocess.CREATE_NO_WINDOW  # Additional flag to prevent window issues
+                ),
+                startupinfo=startup_info
             )
             
             # Monitor the process startup
@@ -687,10 +748,12 @@ class InstagramAutoPoserInstaller:
                 # Check if port is listening
                 port_listening = False
                 try:
-                    for conn in psutil.net_connections():
-                        if hasattr(conn, 'laddr') and conn.laddr and conn.laddr.port == 5003:
-                            port_listening = True
-                            break
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    result = sock.connect_ex(('localhost', 5003))
+                    sock.close()
+                    if result == 0:
+                        port_listening = True
                 except:
                     pass
                 
