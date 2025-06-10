@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Instagram Auto Poster - Start
-Comment=Instagram Auto Poster - Quick Start
-Exec=bash -c "cd '%k/InstagramAutoPoster' && ./start.sh; read -p 'Press Enter to close...'"
-Icon=media-playback-start
-Type=Application
-Terminal=true
-Categories=Development;
