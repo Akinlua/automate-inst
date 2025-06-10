@@ -1,4 +1,22 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+
+# Fix Windows Unicode encoding issues
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    # Set console codepage to UTF-8 if possible
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+    except:
+        pass
+
+#!/usr/bin/env python3
 """
 Instagram Auto Poster Web Interface
 Beautiful Flask web application for managing Instagram posting
@@ -1855,9 +1873,9 @@ if __name__ == "__main__":
     initialize_scheduler()
     
     # Start the Flask app
-    print("🚀 Starting Instagram Auto Poster Web Interface...")
-    print("📱 Visit http://localhost:5000 to manage your content")
-    print("⚙️  Scheduler will run automatically in the background")
-    print("🛑 Press Ctrl+C to stop")
+    print("[LAUNCH] Starting Instagram Auto Poster Web Interface...")
+    print("[MOBILE] Visit http://localhost:5000 to manage your content")
+    print("[SETTINGS]  Scheduler will run automatically in the background")
+    print("[STOP] Press Ctrl+C to stop")
     
     app.run(host='0.0.0.0', port=5003, debug=False) 
