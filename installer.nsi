@@ -44,9 +44,9 @@ RequestExecutionLevel admin
 !insertmacro MUI_PAGE_INSTFILES
 
 ; Finish page
-!define MUI_FINISHPAGE_RUN "$INSTDIR\Instagram Auto Poster.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\Instagram Auto Poster.bat"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch Instagram Auto Poster"
-!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\USER_GUIDE.txt"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\USER_GUIDE.md"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Show User Guide"
 !insertmacro MUI_PAGE_FINISH
 
@@ -78,7 +78,9 @@ Section "Core Application" SecCore
     SetOutPath "$INSTDIR"
     
     ; Copy all application files
-    File /r "Instagram_Auto_Poster_Package\*.*"
+    File /r "Instagram_Auto_Poster_Package\InstagramAutoPoster\*.*"
+    File "Instagram_Auto_Poster_Package\Instagram Auto Poster.bat"
+    File "Instagram_Auto_Poster_Package\USER_GUIDE.md"
     
     ; Create desktop shortcut
     CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.bat"
