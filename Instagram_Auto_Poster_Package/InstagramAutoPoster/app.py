@@ -1623,7 +1623,7 @@ def get_chrome_login_status():
         # Check for completion flag
         if os.path.exists('chrome_login_complete.flag'):
             return jsonify({
-                'status': 'completed',
+                'status': 'completed', 
                 'message': 'Login completed successfully! Your session has been saved.'
             })
         
