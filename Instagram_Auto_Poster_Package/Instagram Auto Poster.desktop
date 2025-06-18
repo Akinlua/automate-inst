@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Instagram Auto Poster
-Comment=Instagram Auto Poster - Modern Setup & Launch
-Exec=bash -c "cd '%k' && python3 gui_installer.py || (echo 'Failed to start installer'; read -p 'Press Enter to close...')"
-Icon=applications-internet
-Type=Application
-Terminal=false
-Categories=Network;WebDevelopment;
