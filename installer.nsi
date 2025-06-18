@@ -81,12 +81,12 @@ Section "Core Application" SecCore
     File /r "Instagram_Auto_Poster_Package\*.*"
     
     ; Create desktop shortcut
-    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.bat"
     
     ; Create Start Menu shortcuts
     CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\User Guide.lnk" "$INSTDIR\USER_GUIDE.txt"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.bat"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\User Guide.lnk" "$INSTDIR\USER_GUIDE.md"
     CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
     
     ; Write registry keys for Add/Remove Programs
@@ -127,19 +127,19 @@ Section "Auto-Startup" SecAutoStart
     DetailPrint "Setting up auto-startup..."
     
     ; Add to Windows startup registry
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "InstagramAutoPoster" "$INSTDIR\Instagram Auto Poster.exe --auto-launch"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "InstagramAutoPoster" "$INSTDIR\Instagram Auto Poster.bat"
     
 SectionEnd
 
 Section "Desktop Integration" SecDesktop
     ; Create additional desktop shortcuts
-    CreateShortCut "$DESKTOP\Instagram Auto Poster - Setup.lnk" "$INSTDIR\Instagram Auto Poster.exe"
+    CreateShortCut "$DESKTOP\Instagram Auto Poster - Setup.lnk" "$INSTDIR\Instagram Auto Poster.bat"
     
     ; Register file associations (optional)
     WriteRegStr HKCR ".iap" "" "InstagramAutoPoster.Project"
     WriteRegStr HKCR "InstagramAutoPoster.Project" "" "Instagram Auto Poster Project"
     ; WriteRegStr HKCR "InstagramAutoPoster.Project\DefaultIcon" "" "$INSTDIR\icon.ico"
-    WriteRegStr HKCR "InstagramAutoPoster.Project\shell\open\command" "" '"$INSTDIR\Instagram Auto Poster.exe" "%1"'
+    WriteRegStr HKCR "InstagramAutoPoster.Project\shell\open\command" "" '"$INSTDIR\Instagram Auto Poster.bat" "%1"'
     
 SectionEnd
 
