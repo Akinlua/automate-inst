@@ -21,12 +21,12 @@ RequestExecutionLevel admin
 
 ; MUI Settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "installer_icon.ico"
-!define MUI_UNICON "installer_icon.ico"
-!define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "installer_header.bmp"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
-!define MUI_UNWELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
+; !define MUI_ICON "installer_icon.ico"
+; !define MUI_UNICON "installer_icon.ico"
+; !define MUI_HEADERIMAGE
+; !define MUI_HEADERIMAGE_BITMAP "installer_header.bmp"
+; !define MUI_WELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
+; !define MUI_UNWELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
 
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
@@ -81,18 +81,18 @@ Section "Core Application" SecCore
     File /r "Instagram_Auto_Poster_Package\*.*"
     
     ; Create desktop shortcut
-    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe"
     
     ; Create Start Menu shortcuts
     CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe"
     CreateShortCut "$SMPROGRAMS\${APP_NAME}\User Guide.lnk" "$INSTDIR\USER_GUIDE.txt"
     CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
     
     ; Write registry keys for Add/Remove Programs
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayName" "${APP_NAME}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString" "$INSTDIR\Uninstall.exe"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" "$INSTDIR\icon.ico"
+    ; WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" "$INSTDIR\icon.ico"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "Publisher" "${APP_PUBLISHER}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayVersion" "${APP_VERSION}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "URLInfoAbout" "${APP_URL}"
@@ -151,12 +151,12 @@ SectionEnd
 
 Section "Desktop Integration" SecDesktop
     ; Create additional desktop shortcuts
-    CreateShortCut "$DESKTOP\Instagram Auto Poster - Setup.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
+    CreateShortCut "$DESKTOP\Instagram Auto Poster - Setup.lnk" "$INSTDIR\Instagram Auto Poster.exe"
     
     ; Register file associations (optional)
     WriteRegStr HKCR ".iap" "" "InstagramAutoPoster.Project"
     WriteRegStr HKCR "InstagramAutoPoster.Project" "" "Instagram Auto Poster Project"
-    WriteRegStr HKCR "InstagramAutoPoster.Project\DefaultIcon" "" "$INSTDIR\icon.ico"
+    ; WriteRegStr HKCR "InstagramAutoPoster.Project\DefaultIcon" "" "$INSTDIR\icon.ico"
     WriteRegStr HKCR "InstagramAutoPoster.Project\shell\open\command" "" '"$INSTDIR\Instagram Auto Poster.exe" "%1"'
     
 SectionEnd
