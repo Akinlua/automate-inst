@@ -116,26 +116,8 @@ Section "Python Runtime" SecPython
     nsExec::ExecToStack 'python --version'
     Pop $0
     ${If} $0 != 0
-        ; Python not found, download and install
-        DetailPrint "Python not found. Installing Python 3.11..."
-        
-        ; Download Python installer
-        inetc::get "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe" "$TEMP\python_installer.exe"
-        Pop $0
-        ${If} $0 == "OK"
-            DetailPrint "Installing Python..."
-            ; Install Python silently
-            nsExec::ExecToLog '"$TEMP\python_installer.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_tcltk=1'
-            Pop $0
-            ${If} $0 == 0
-                DetailPrint "Python installed successfully!"
-            ${Else}
-                DetailPrint "Python installation failed. Please install manually."
-            ${EndIf}
-            Delete "$TEMP\python_installer.exe"
-        ${Else}
-            DetailPrint "Failed to download Python installer."
-        ${EndIf}
+        ; Python not found, show message to user
+        MessageBox MB_OK "Python 3.11+ is required but not found.$\n$\nPlease install Python from https://python.org and run this installer again.$\n$\nMake sure to check 'Add Python to PATH' during installation."
     ${Else}
         DetailPrint "Python is already installed."
     ${EndIf}
