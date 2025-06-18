@@ -77,35 +77,8 @@ Section "Core Application" SecCore
     
     SetOutPath "$INSTDIR"
     
-    ; Copy all application files from InstagramAutoPoster subdirectory
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\app.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\instagram_poster.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\requirements.txt"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\setup_integration.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\setup_chrome.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\vnc_setup.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\run_scheduler.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\test_setup.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\troubleshoot_chrome.py"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\.env.example"
-    File /r "Instagram_Auto_Poster_Package\InstagramAutoPoster\templates"
-    File /r "Instagram_Auto_Poster_Package\InstagramAutoPoster\static"
-    File /r "Instagram_Auto_Poster_Package\InstagramAutoPoster\content"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\README.md"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\SETUP_README.md"
-    ; Copy setup scripts
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\setup.sh"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\setup.bat"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\start.sh"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\start.bat"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\setup_noninteractive.sh"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\setup_noninteractive.bat"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\start_noninteractive.sh"
-    File "Instagram_Auto_Poster_Package\InstagramAutoPoster\start_noninteractive.bat"
-    
-    ; Copy main launcher and guide
-    File "Instagram_Auto_Poster_Package\Instagram Auto Poster.bat"
-    File "Instagram_Auto_Poster_Package\USER_GUIDE.md"
+    ; Copy all application files from Instagram_Auto_Poster_Package
+    File /r "Instagram_Auto_Poster_Package\*"
     
     ; Create desktop shortcut
     CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.bat"
