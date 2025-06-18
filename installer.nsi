@@ -21,12 +21,12 @@ RequestExecutionLevel admin
 
 ; MUI Settings
 !define MUI_ABORTWARNING
-; !define MUI_ICON "installer_icon.ico"
-; !define MUI_UNICON "installer_icon.ico"
-; !define MUI_HEADERIMAGE
-; !define MUI_HEADERIMAGE_BITMAP "installer_header.bmp"
-; !define MUI_WELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
-; !define MUI_UNWELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
+!define MUI_ICON "installer_icon.ico"
+!define MUI_UNICON "installer_icon.ico"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "installer_header.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
 
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
@@ -44,9 +44,9 @@ RequestExecutionLevel admin
 !insertmacro MUI_PAGE_INSTFILES
 
 ; Finish page
-!define MUI_FINISHPAGE_RUN "$INSTDIR\Instagram Auto Poster.bat"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\Instagram Auto Poster.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch Instagram Auto Poster"
-!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\USER_GUIDE.md"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\USER_GUIDE.txt"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Show User Guide"
 !insertmacro MUI_PAGE_FINISH
 
@@ -77,22 +77,22 @@ Section "Core Application" SecCore
     
     SetOutPath "$INSTDIR"
     
-    ; Copy all application files from Instagram_Auto_Poster_Package
-    File /r "Instagram_Auto_Poster_Package\*"
+    ; Copy all application files
+    File /r "Instagram_Auto_Poster_Package\*.*"
     
     ; Create desktop shortcut
-    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.bat"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
     
     ; Create Start Menu shortcuts
     CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.bat"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\User Guide.lnk" "$INSTDIR\USER_GUIDE.md"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\User Guide.lnk" "$INSTDIR\USER_GUIDE.txt"
     CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
     
     ; Write registry keys for Add/Remove Programs
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayName" "${APP_NAME}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString" "$INSTDIR\Uninstall.exe"
-    ; WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" "$INSTDIR\icon.ico"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" "$INSTDIR\icon.ico"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "Publisher" "${APP_PUBLISHER}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayVersion" "${APP_VERSION}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "URLInfoAbout" "${APP_URL}"
@@ -116,8 +116,26 @@ Section "Python Runtime" SecPython
     nsExec::ExecToStack 'python --version'
     Pop $0
     ${If} $0 != 0
-        ; Python not found, show message to user
-        MessageBox MB_OK "Python 3.11+ is required but not found.$\n$\nPlease install Python from https://python.org and run this installer again.$\n$\nMake sure to check 'Add Python to PATH' during installation."
+        ; Python not found, download and install
+        DetailPrint "Python not found. Installing Python 3.11..."
+        
+        ; Download Python installer
+        inetc::get "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe" "$TEMP\python_installer.exe"
+        Pop $0
+        ${If} $0 == "OK"
+            DetailPrint "Installing Python..."
+            ; Install Python silently
+            nsExec::ExecToLog '"$TEMP\python_installer.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_tcltk=1'
+            Pop $0
+            ${If} $0 == 0
+                DetailPrint "Python installed successfully!"
+            ${Else}
+                DetailPrint "Python installation failed. Please install manually."
+            ${EndIf}
+            Delete "$TEMP\python_installer.exe"
+        ${Else}
+            DetailPrint "Failed to download Python installer."
+        ${EndIf}
     ${Else}
         DetailPrint "Python is already installed."
     ${EndIf}
@@ -127,19 +145,19 @@ Section "Auto-Startup" SecAutoStart
     DetailPrint "Setting up auto-startup..."
     
     ; Add to Windows startup registry
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "InstagramAutoPoster" "$INSTDIR\Instagram Auto Poster.bat"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "InstagramAutoPoster" "$INSTDIR\Instagram Auto Poster.exe --auto-launch"
     
 SectionEnd
 
 Section "Desktop Integration" SecDesktop
     ; Create additional desktop shortcuts
-    CreateShortCut "$DESKTOP\Instagram Auto Poster - Setup.lnk" "$INSTDIR\Instagram Auto Poster.bat"
+    CreateShortCut "$DESKTOP\Instagram Auto Poster - Setup.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
     
     ; Register file associations (optional)
     WriteRegStr HKCR ".iap" "" "InstagramAutoPoster.Project"
     WriteRegStr HKCR "InstagramAutoPoster.Project" "" "Instagram Auto Poster Project"
-    ; WriteRegStr HKCR "InstagramAutoPoster.Project\DefaultIcon" "" "$INSTDIR\icon.ico"
-    WriteRegStr HKCR "InstagramAutoPoster.Project\shell\open\command" "" '"$INSTDIR\Instagram Auto Poster.bat" "%1"'
+    WriteRegStr HKCR "InstagramAutoPoster.Project\DefaultIcon" "" "$INSTDIR\icon.ico"
+    WriteRegStr HKCR "InstagramAutoPoster.Project\shell\open\command" "" '"$INSTDIR\Instagram Auto Poster.exe" "%1"'
     
 SectionEnd
 

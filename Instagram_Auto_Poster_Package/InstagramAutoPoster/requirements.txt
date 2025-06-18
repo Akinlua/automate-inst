@@ -1,0 +1,14 @@
+selenium
+Pillow
+python-dotenv
+schedule
+jiter
+distro
+requests
+flask
+werkzeug
+pytz
+psutil
+undetected_chromedriver
+setuptools
+selenium-driverless

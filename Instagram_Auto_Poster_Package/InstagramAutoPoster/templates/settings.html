@@ -1,0 +1,2001 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Instagram Auto Poster{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2 mb-4">
+            <i class="fas fa-cog me-2 text-primary"></i>
+            Settings
+        </h1>
+        
+        <!-- Instagram Login Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fab fa-instagram me-2"></i>
+                    Instagram Login
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Login Status Display -->
+                <!-- <div id="loginStatusSection">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Checking login status...</p>
+                    </div>
+                </div> -->
+                
+                <!-- One-Click Chrome Login Option (shown when not logged in) -->
+                <div id="chromeLoginSection" style="display: none;">
+                    <div class="alert alert-primary mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <h6 class="alert-heading mb-2">
+                                    <i class="fab fa-chrome me-2"></i>
+                                    One-Click Chrome Login
+                                </h6>
+                                <p class="mb-2">
+                                    Open a Chrome browser window with Instagram pre-loaded. 
+                                    Log in manually and your session will be automatically saved.
+                                </p>
+                                <p class="mb-0 text-muted small">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Perfect for easy manual login - no terminal commands needed!
+                                </p>
+                            </div>
+                            <div class="flex-shrink-0 ms-3">
+                                <button type="button" class="btn btn-primary" onclick="startChromeLogin()" id="chromeLoginBtn">
+                                    <i class="fab fa-chrome me-1"></i>
+                                    Open Chrome & Login
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <span class="text-muted">OR</span>
+                    </div>
+                </div>
+                
+                <!-- Login Form (hidden by default) -->
+                <div id="loginFormSection" style="display: none;">
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Important:</strong> Before logging in, please check your Instagram account on your phone or other device. 
+                        Instagram may show a security prompt asking you to allow login from this IP address.
+                    </div>
+                    
+                    <form id="instagramLoginForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="instagramUsername" class="form-label">
+                                        <i class="fas fa-user me-2"></i>
+                                        Instagram Username or Email
+                                    </label>
+                                    <input type="text" class="form-control" id="instagramUsername" 
+                                           placeholder="Enter your username or email" required>
+                                    <small class="form-text text-muted">
+                                        Your credentials are used only for login and are not saved
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="instagramPassword" class="form-label">
+                                        <i class="fas fa-lock me-2"></i>
+                                        Instagram Password
+                                    </label>
+                                    <input type="password" class="form-control" id="instagramPassword" 
+                                           placeholder="Enter your password" required>
+                                    <small class="form-text text-muted">
+                                        Credentials are processed securely and not stored
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" id="loginSubmitBtn">
+                                <i class="fas fa-sign-in-alt me-1"></i>
+                                Login to Instagram
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Verification Code Section (hidden by default) -->
+                <div id="verificationSection" style="display: none;">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-envelope me-2"></i>
+                        <strong>Email Verification Required</strong><br>
+                        Instagram has sent a verification code to your email. Please check your email and enter the code below.
+                    </div>
+                    
+                    <form id="verificationForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="verificationCode" class="form-label">
+                                        <i class="fas fa-key me-2"></i>
+                                        Verification Code
+                                    </label>
+                                    <input type="text" class="form-control" id="verificationCode" 
+                                           placeholder="Enter 6-digit code" maxlength="6" required>
+                                    <small class="form-text text-muted">
+                                        Enter the 6-digit code sent to your email
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-warning" id="verifySubmitBtn">
+                                <i class="fas fa-check me-1"></i>
+                                Submit Code
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Setup Progress (hidden by default) -->
+                <div id="setupProgressSection" style="display: none;">
+                    <div class="progress mb-3" style="height: 20px;">
+                        <div id="setupProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             style="width: 0%"></div>
+                    </div>
+                    <div id="setupProgressText" class="text-center text-muted">
+                        Initializing...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scheduler Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Scheduler Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="schedulerForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="setting-group">
+                                <label class="setting-label" for="imagesPerPost">
+                                    <i class="fas fa-images me-2"></i>
+                                    Number of Images per Post
+                                </label>
+                                <select class="form-select" id="imagesPerPost">
+                                    <option value="1">1 image</option>
+                                    <option value="2">2 images</option>
+                                    <option value="3">3 images</option>
+                                    <option value="4">4 images</option>
+                                    <option value="5">5 images</option>
+                                </select>
+                                <small class="form-text">Select how many images to include in each automated post</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="setting-group">
+                                <label class="setting-label" for="timezone">
+                                    <i class="fas fa-globe me-2"></i>
+                                    Timezone
+                                </label>
+                                <select class="form-select" id="timezone">
+                                    <option value="UTC">UTC - Coordinated Universal Time</option>
+                                    <optgroup label="Americas">
+                                        <option value="America/New_York">Eastern Time (ET) - New York</option>
+                                        <option value="America/Chicago">Central Time (CT) - Chicago</option>
+                                        <option value="America/Denver">Mountain Time (MT) - Denver</option>
+                                        <option value="America/Los_Angeles">Pacific Time (PT) - Los Angeles</option>
+                                        <option value="America/Phoenix">Mountain Standard Time - Phoenix</option>
+                                        <option value="America/Anchorage">Alaska Time - Anchorage</option>
+                                        <option value="Pacific/Honolulu">Hawaii Time - Honolulu</option>
+                                        <option value="America/Toronto">Eastern Time - Toronto</option>
+                                        <option value="America/Vancouver">Pacific Time - Vancouver</option>
+                                        <option value="America/Mexico_City">Central Time - Mexico City</option>
+                                        <option value="America/Sao_Paulo">Brasília Time - São Paulo</option>
+                                        <option value="America/Argentina/Buenos_Aires">Argentina Time - Buenos Aires</option>
+                                    </optgroup>
+                                    <optgroup label="Europe">
+                                        <option value="Europe/London">Greenwich Mean Time - London</option>
+                                        <option value="Europe/Paris">Central European Time - Paris</option>
+                                        <option value="Europe/Berlin">Central European Time - Berlin</option>
+                                        <option value="Europe/Rome">Central European Time - Rome</option>
+                                        <option value="Europe/Madrid">Central European Time - Madrid</option>
+                                        <option value="Europe/Amsterdam">Central European Time - Amsterdam</option>
+                                        <option value="Europe/Stockholm">Central European Time - Stockholm</option>
+                                        <option value="Europe/Moscow">Moscow Time</option>
+                                        <option value="Europe/Istanbul">Turkey Time - Istanbul</option>
+                                        <option value="Europe/Athens">Eastern European Time - Athens</option>
+                                    </optgroup>
+                                    <optgroup label="Asia">
+                                        <option value="Asia/Tokyo">Japan Standard Time - Tokyo</option>
+                                        <option value="Asia/Shanghai">China Standard Time - Shanghai</option>
+                                        <option value="Asia/Hong_Kong">Hong Kong Time</option>
+                                        <option value="Asia/Singapore">Singapore Time</option>
+                                        <option value="Asia/Seoul">Korea Standard Time - Seoul</option>
+                                        <option value="Asia/Kolkata">India Standard Time - Mumbai/Delhi</option>
+                                        <option value="Asia/Dubai">Gulf Standard Time - Dubai</option>
+                                        <option value="Asia/Bangkok">Indochina Time - Bangkok</option>
+                                        <option value="Asia/Manila">Philippines Time - Manila</option>
+                                        <option value="Asia/Jakarta">Western Indonesian Time - Jakarta</option>
+                                    </optgroup>
+                                    <optgroup label="Australia & Oceania">
+                                        <option value="Australia/Sydney">Australian Eastern Time - Sydney</option>
+                                        <option value="Australia/Melbourne">Australian Eastern Time - Melbourne</option>
+                                        <option value="Australia/Perth">Australian Western Time - Perth</option>
+                                        <option value="Australia/Brisbane">Australian Eastern Time - Brisbane</option>
+                                        <option value="Pacific/Auckland">New Zealand Time - Auckland</option>
+                                    </optgroup>
+                                    <optgroup label="Africa">
+                                        <option value="Africa/Cairo">Eastern European Time - Cairo</option>
+                                        <option value="Africa/Johannesburg">South Africa Time - Johannesburg</option>
+                                        <option value="Africa/Lagos">West Africa Time - Lagos</option>
+                                        <option value="Africa/Nairobi">East Africa Time - Nairobi</option>
+                                    </optgroup>
+                                </select>
+                                <small class="form-text">Select your timezone for accurate posting times</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i class="fas fa-toggle-on"></i>
+                            Enable Automatic Posting
+                        </label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="schedulerEnabled">
+                            <label class="form-check-label" for="schedulerEnabled">
+                                When enabled, the scheduler will automatically post content based on the selected times
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i class="fas fa-clock"></i>
+                            Posting Times
+                        </label>
+                        <div class="time-selector-container">
+                            <p class="setting-description">Select the times when you want posts to be published automatically</p>
+                            <div class="time-grid" id="timeGrid">
+                                <!-- Times will be populated by JavaScript -->
+                            </div>
+                            <div class="selected-times-display">
+                                <strong>Selected times:</strong>
+                                <span id="selectedTimesDisplay">None selected</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>
+                            Save Settings
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="reloadSettings()">
+                            <i class="fas fa-sync me-1"></i>
+                            Reload Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- ChatGPT Configuration -->
+        <!-- <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-robot me-2"></i>
+                    ChatGPT Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="setting-group">
+                    <label class="setting-label">
+                        <i class="fas fa-toggle-on"></i>
+                        Enable ChatGPT Enhancement
+                    </label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="chatgptEnabled">
+                        <label class="form-check-label" for="chatgptEnabled">
+                            When enabled, ChatGPT will enhance your captions before posting
+                        </label>
+                    </div>
+                    <small class="form-text text-muted">
+                        ChatGPT will improve your captions by adding emojis, hashtags, and making them more engaging
+                    </small>
+                </div>
+                
+                <div class="setting-group">
+                    <label class="setting-label" for="chatgptApiKey">
+                        <i class="fas fa-key me-2"></i>
+                        OpenAI API Key
+                    </label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="chatgptApiKey" 
+                               placeholder="sk-..." autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="toggleApiKey">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <small class="form-text text-muted">
+                        Your API key is stored securely and only used for caption enhancement. 
+                        Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>
+                    </small>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>How it works:</strong> When posting content, your original caption will be sent to ChatGPT 
+                    for enhancement. The enhanced version will be used for the Instagram post while keeping your original caption unchanged.
+                </div>
+            </div>
+        </div> -->
+        
+        <!-- Scheduler Status -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Scheduler Status & Controls
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="schedulerStatus">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading scheduler status...</p>
+                    </div>
+                </div>
+                
+                <!-- Scheduler Controls -->
+                <div class="mt-4 pt-3 border-top">
+                    <h6 class="mb-3">
+                        <i class="fas fa-play-circle me-2"></i>
+                        Scheduler Controls
+                    </h6>
+                    <div class="d-flex gap-2 mb-3">
+                        <button id="startSchedulerBtn" class="btn btn-success" onclick="startScheduler()" disabled>
+                            <i class="fas fa-play me-1"></i>
+                            Start Scheduler
+                        </button>
+                        <button id="stopSchedulerBtn" class="btn btn-danger" onclick="stopScheduler()" disabled>
+                            <i class="fas fa-stop me-1"></i>
+                            Stop Scheduler
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="loadSchedulerStatus()">
+                            <i class="fas fa-sync-alt me-1"></i>
+                            Refresh Status
+                        </button>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> The scheduler runs automatically when the web app starts. 
+                        Use these controls to manually start or stop the background scheduler process.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Environment Configuration -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-code me-2"></i>
+                    Environment Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Configure additional settings in your <code>.env</code> file:</p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Basic Settings</h6>
+                        <ul class="list-unstyled">
+                            <li><code>CONTENT_DIR</code> - Content directory path</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Chrome Settings</h6>
+                        <ul class="list-unstyled">
+                            <li><code>CHROME_PROFILE_PATH</code> - Chrome profile path</li>
+                            <li><code>CHROME_USER_DATA_DIR</code> - Chrome user data directory</li>
+                            <li><code>CHROME_PROFILE_NAME</code> - Chrome profile name</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Make sure to set up your Chrome profile first by running the setup script.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedTimes = [];
+
+// Generate time options from 00:00 to 23:00
+function generateTimeOptions() {
+    const timeGrid = document.getElementById('timeGrid');
+    timeGrid.innerHTML = '';
+    
+    for (let hour = 0; hour < 24; hour++) {
+        const timeString = hour.toString().padStart(2, '0') + ':00';
+        const timeOption = document.createElement('div');
+        timeOption.className = 'time-option';
+        timeOption.textContent = timeString;
+        timeOption.dataset.time = timeString;
+        
+        timeOption.addEventListener('click', function() {
+            toggleTimeSelection(timeString, timeOption);
+        });
+        
+        timeGrid.appendChild(timeOption);
+    }
+}
+
+// Toggle time selection
+function toggleTimeSelection(time, element) {
+    const index = selectedTimes.indexOf(time);
+    
+    if (index > -1) {
+        // Remove time
+        selectedTimes.splice(index, 1);
+        element.classList.remove('selected');
+    } else {
+        // Add time
+        selectedTimes.push(time);
+        element.classList.add('selected');
+    }
+    
+    // Sort times
+    selectedTimes.sort();
+    updateSelectedTimesDisplay();
+}
+
+// Update the display of selected times
+function updateSelectedTimesDisplay() {
+    const display = document.getElementById('selectedTimesDisplay');
+    if (selectedTimes.length === 0) {
+        display.textContent = 'None selected';
+        display.style.color = '#6c757d';
+    } else {
+        display.textContent = selectedTimes.join(', ');
+        display.style.color = '#007bff';
+    }
+}
+
+// Load existing settings
+function loadExistingSettings() {
+    fetch('/api/settings')
+        .then(response => response.json())
+        .then(data => {
+            // Load number of images
+            if (data.num_images) {
+                document.getElementById('imagesPerPost').value = data.num_images;
+            }
+            
+            // Load scheduler enabled status
+            if (data.hasOwnProperty('enabled')) {
+                document.getElementById('schedulerEnabled').checked = data.enabled;
+            }
+            
+            // Load ChatGPT settings
+            if (data.hasOwnProperty('chatgpt_enabled')) {
+                const chatgptCheckbox = document.getElementById('chatgptEnabled');
+                if (chatgptCheckbox) {
+                    chatgptCheckbox.checked = data.chatgpt_enabled;
+                }
+            }
+            
+            if (data.chatgpt_api_key) {
+                const chatgptApiKeyInput = document.getElementById('chatgptApiKey');
+                if (chatgptApiKeyInput) {
+                    chatgptApiKeyInput.value = data.chatgpt_api_key;
+                }
+            }
+            
+            // Load posting times
+            if (data.posting_times) {
+                selectedTimes = [...data.posting_times];
+                
+                // Mark selected times in the grid
+                document.querySelectorAll('.time-option').forEach(option => {
+                    if (selectedTimes.includes(option.dataset.time)) {
+                        option.classList.add('selected');
+                    }
+                });
+                
+                updateSelectedTimesDisplay();
+            }
+            
+            // Load timezone
+            if (data.timezone) {
+                document.getElementById('timezone').value = data.timezone;
+            } else {
+                // Try to detect user's timezone and set as default
+                const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const timezoneSelect = document.getElementById('timezone');
+                // Check if user's timezone is available in the dropdown
+                for (let option of timezoneSelect.options) {
+                    if (option.value === userTimezone) {
+                        option.selected = true;
+                        break;
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading settings:', error);
+            showNotification('Error loading settings', 'error');
+        });
+}
+
+// Form submission handler
+document.addEventListener('DOMContentLoaded', function() {
+    generateTimeOptions();
+    loadExistingSettings();
+    loadSchedulerStatus();
+    
+    // Handle form submission
+    document.getElementById('schedulerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveSettings();
+    });
+    
+    // Check login status on page load
+    checkInstagramLoginStatus();
+    
+    // Setup login form handlers
+    setupLoginFormHandlers();
+});
+
+// Save Settings Function
+function saveSettings() {
+    const formData = {
+        enabled: document.getElementById('schedulerEnabled').checked,
+        num_images: parseInt(document.getElementById('imagesPerPost').value),
+        timezone: document.getElementById('timezone').value,
+        posting_times: selectedTimes
+    };
+    
+    // Add ChatGPT settings if elements exist
+    const chatgptEnabledElement = document.getElementById('chatgptEnabled');
+    const chatgptApiKeyElement = document.getElementById('chatgptApiKey');
+    
+    if (chatgptEnabledElement) {
+        formData.chatgpt_enabled = chatgptEnabledElement.checked;
+    }
+    
+    if (chatgptApiKeyElement && chatgptApiKeyElement.value.trim()) {
+        formData.chatgpt_api_key = chatgptApiKeyElement.value.trim();
+    }
+
+    showNotification('Saving settings...', 'info');
+
+    fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Settings saved successfully!', 'success');
+            // Refresh scheduler status
+            setTimeout(() => {
+                loadSchedulerStatus();
+            }, 500);
+        } else {
+            showNotification('Failed to save settings: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error saving settings: ' + error, 'error');
+    });
+}
+
+// Reload Settings Function
+function reloadSettings() {
+    showNotification('Reloading settings...', 'info');
+    
+    fetch('/api/settings/reload', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Settings reloaded successfully!', 'success');
+            // Refresh the settings display
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showNotification('Failed to reload settings: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Error reloading settings: ' + error, 'error');
+    });
+}
+
+// Load scheduler status
+function loadSchedulerStatus() {
+    fetch('/api/scheduler/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                displaySchedulerStatus('Error loading status', 'error');
+                return;
+            }
+            
+            displaySchedulerStatus(data);
+        })
+        .catch(error => {
+            console.error('Error loading scheduler status:', error);
+            displaySchedulerStatus('Failed to load scheduler status', 'error');
+        });
+}
+
+// Display scheduler status
+function displaySchedulerStatus(data, errorType = null) {
+    const container = document.getElementById('schedulerStatus');
+    const startBtn = document.getElementById('startSchedulerBtn');
+    const stopBtn = document.getElementById('stopSchedulerBtn');
+    
+    if (errorType === 'error') {
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Failed to load scheduler status
+            </div>
+        `;
+        // Disable both buttons if error
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = true;
+        return;
+    }
+    
+    const enabledBadge = data.enabled 
+        ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Enabled</span>'
+        : '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>Disabled</span>';
+    
+    const runningBadge = data.running 
+        ? '<span class="badge bg-success ms-2"><i class="fas fa-play me-1"></i>Running</span>'
+        : '<span class="badge bg-secondary ms-2"><i class="fas fa-stop me-1"></i>Stopped</span>';
+    
+    // Update button states based on running status
+    if (startBtn && stopBtn) {
+        if (data.running) {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-check me-1"></i>Already Running';
+            stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop Scheduler';
+        } else {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start Scheduler';
+            stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Not Running';
+        }
+    }
+    
+    const nextPostTime = data.next_post_time 
+        ? `<div class="mb-2"><strong>Next Post:</strong> ${data.next_post_time}</div>`
+        : '<div class="mb-2"><strong>Next Post:</strong> <span class="text-muted">Not scheduled</span></div>';
+    
+    const lastPostTime = data.last_post_time 
+        ? `<div class="mb-2"><strong>Last Post:</strong> ${data.last_post_time}</div>`
+        : '<div class="mb-2"><strong>Last Post:</strong> <span class="text-muted">Never</span></div>';
+    
+    const timezone = data.timezone || 'UTC';
+    const timezoneInfo = `<div class="mb-2"><strong>Timezone:</strong> ${timezone}</div>`;
+    
+    const postingTimes = data.posting_times && data.posting_times.length > 0
+        ? `<div class="mb-2"><strong>Posting Times:</strong> ${data.posting_times.join(', ')} (${timezone})</div>`
+        : '<div class="mb-2"><strong>Posting Times:</strong> <span class="text-muted">None configured</span></div>';
+    
+    const schedulingInfo = `<div class="mb-2"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Times are automatically converted to server timezone for efficient scheduling</small></div>`;
+    
+    const imagesPerPost = `<div class="mb-2"><strong>Images per Post:</strong> ${data.num_images}</div>`;
+    
+    let errorsHtml = '';
+    if (data.recent_errors && data.recent_errors.length > 0) {
+        errorsHtml = `
+            <div class="mt-3">
+                <h6 class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Recent Errors</h6>
+                <div class="card">
+                    <div class="card-body">
+                        ${data.recent_errors.slice(-3).map(error => `
+                            <div class="mb-2">
+                                <small class="text-muted">${error.timestamp}</small><br>
+                                <span class="text-danger">${error.message}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = `
+        <div class="mb-3">
+            <h6 class="mb-2">Current Status</h6>
+            <div class="d-flex align-items-center">
+                ${enabledBadge}
+                ${runningBadge}
+            </div>
+        </div>
+        ${nextPostTime}
+        ${lastPostTime}
+        ${timezoneInfo}
+        ${postingTimes}
+        ${schedulingInfo}
+        ${imagesPerPost}
+        ${errorsHtml}
+    `;
+}
+
+// Notification function
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
+// Instagram Login Functions
+let loginCheckInterval = null;
+let verificationCountdownInterval = null;
+
+function setupLoginFormHandlers() {
+    // Instagram login form submission
+    document.getElementById('instagramLoginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        startInstagramLogin();
+    });
+    
+    // Verification form submission
+    document.getElementById('verificationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitVerificationCode();
+    });
+    
+    // API key visibility toggle
+    const toggleBtn = document.getElementById('toggleApiKey');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleApiKeyVisibility);
+    }
+}
+
+function toggleApiKeyVisibility() {
+    const apiKeyInput = document.getElementById('chatgptApiKey');
+    const toggleBtn = document.getElementById('toggleApiKey');
+    
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+    } else {
+        apiKeyInput.type = 'password';
+        toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+    }
+}
+
+function checkInstagramLoginStatus() {
+    fetch('/api/login/check')
+        .then(response => response.json())
+        .then(data => {
+            displayLoginStatus(data);
+        })
+        .catch(error => {
+            console.error('Error checking login status:', error);
+            displayLoginError('Failed to check login status');
+        });
+}
+
+function displayLoginStatus(data) {
+    const statusSection = document.getElementById('loginStatusSection');
+    const chromeSection = document.getElementById('chromeLoginSection');
+    
+    if (data.logged_in) {
+        // Always show Chrome login section - even when logged in for convenience
+        chromeSection.style.display = 'block';
+        
+        // Update the Chrome section content for logged-in users
+        chromeSection.innerHTML = `
+            <div class="alert alert-success mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-2">
+                            <i class="fab fa-chrome me-2"></i>
+                            Quick Chrome Access
+                        </h6>
+                        <p class="mb-2">
+                            Open Chrome to view your Instagram account or perform additional login tasks.
+                        </p>
+                        <p class="mb-0 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Your session is already saved - this just opens Chrome for convenience!
+                        </p>
+                    </div>
+                    <div class="flex-shrink-0 ms-3">
+                        <button type="button" class="btn btn-outline-primary" onclick="startChromeLogin()" id="chromeLoginBtn">
+                            <i class="fab fa-chrome me-1"></i>
+                            Open Chrome
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // statusSection.innerHTML = `
+        //     <div class="alert alert-success">
+        //         <div class="d-flex justify-content-between align-items-center">
+        //             <div>
+        //                 <h6 class="alert-heading mb-2">
+        //                     <i class="fas fa-check-circle me-2"></i>
+        //                     Successfully Logged In
+        //                 </h6>
+        //                 <p class="mb-0">You are currently logged in to Instagram and ready to post content.</p>
+        //                 ${data.chrome_profile_path ? `<small class="text-muted">Profile: ${data.chrome_profile_path}</small>` : ''}
+        //             </div>
+        //             <button type="button" class="btn btn-outline-danger" onclick="logoutInstagram()">
+        //                 <i class="fas fa-sign-out-alt me-1"></i>
+        //                 Logout
+        //             </button>
+        //         </div>
+        //     </div>
+        // `;
+    } else {
+        // Show Chrome login section when not logged in (original functionality)
+        chromeSection.style.display = 'block';
+        chromeSection.innerHTML = `
+            <div class="alert alert-primary mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-2">
+                            <i class="fab fa-chrome me-2"></i>
+                            One-Click Chrome Login
+                        </h6>
+                        <p class="mb-2">
+                            Open a Chrome browser window with Instagram pre-loaded. 
+                            Log in manually and your session will be automatically saved.
+                        </p>
+                        <p class="mb-0 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Perfect for easy manual login - no terminal commands needed!
+                        </p>
+                    </div>
+                    <div class="flex-shrink-0 ms-3">
+                        <button type="button" class="btn btn-primary" onclick="startChromeLogin()" id="chromeLoginBtn">
+                            <i class="fab fa-chrome me-1"></i>
+                            Open Chrome & Login
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mb-4">
+                <span class="text-muted">OR</span>
+            </div>
+        `;
+        
+        // statusSection.innerHTML = `
+        //     <div class="alert alert-warning">
+        //         <h6 class="alert-heading mb-2">
+        //             <i class="fas fa-exclamation-triangle me-2"></i>
+        //             Not Logged In
+        //         </h6>
+        //         <p class="mb-2">You need to log in to Instagram to enable automated posting.</p>
+        //         <button type="button" class="btn btn-primary" onclick="showLoginForm()">
+        //             <i class="fas fa-sign-in-alt me-1"></i>
+        //             Login to Instagram
+        //         </button>
+        //     </div>
+        // `;
+    }
+}
+
+function displayLoginError(message) {
+    const statusSection = document.getElementById('loginStatusSection');
+    
+    // Ensure all sections are hidden first
+    hideAllSections();
+    
+    // Show the status section
+    statusSection.style.display = 'block';
+    
+    statusSection.innerHTML = `
+        <div class="alert alert-danger">
+            <h6 class="alert-heading mb-2">
+                <i class="fas fa-times-circle me-2"></i>
+                Automated Login Failed
+            </h6>
+            <p class="mb-3"><strong>Error:</strong> ${message}</p>
+            <p class="mb-3 text-muted">Don't worry! You can try automated login again or use one of the manual login options below.</p>
+            
+            <div class="d-flex flex-column gap-3">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary" onclick="checkInstagramLoginStatus()">
+                        <i class="fas fa-sync me-1"></i>
+                        Retry Automated Login
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="showManualLoginOptions()" id="showManualOptionsBtn">
+                        <i class="fas fa-tools me-1"></i>
+                        Show Manual Login Options
+                    </button>
+                </div>
+                
+                <!-- Manual Login Options (hidden by default) -->
+                <div id="manualLoginOptions" style="display: none;" class="p-3 border rounded bg-light">
+                    <h6 class="mb-3">
+                        <i class="fas fa-hand-paper me-2"></i>
+                        Manual Login Alternatives
+                    </h6>
+                    <p class="text-muted mb-3">If automated login keeps failing, you can manually log in using one of these options:</p>
+                    
+                    <!-- VNC Option -->
+                    <div class="mb-3 p-3 border rounded bg-white">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-desktop me-2 text-primary"></i>
+                                    Remote Desktop Login (VNC) - Recommended for Servers
+                                </h6>
+                                <p class="text-muted mb-2 small">
+                                    Start a remote desktop session where you can manually log in to Instagram through a browser.
+                                    Perfect for VPS/server environments. You'll get a web-based interface to control the browser.
+                                </p>
+                                <div id="vncStatus" class="mb-2"></div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="startVNCSession()" id="startVNCBtn">
+                                <i class="fas fa-play me-1"></i>
+                                Start VNC Session
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="checkVNCStatus()" id="checkVNCBtn">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Check Status
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="stopVNCSession()" id="stopVNCBtn" style="display: none;">
+                                <i class="fas fa-stop me-1"></i>
+                                Stop VNC
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Chrome Option -->
+                    <div class="mb-3 p-3 border rounded bg-white">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-chrome me-2 text-warning"></i>
+                                    Local Chrome Setup - For Local Development
+                                </h6>
+                                <p class="text-muted mb-2 small">
+                                    Run the setup script to open Chrome locally on your machine.
+                                    Best for local development environments where you have direct access to the screen.
+                                </p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-warning btn-sm" onclick="startLocalChrome()">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Run Local Setup
+                        </button>
+                    </div>
+                    
+                    <!-- Instructions -->
+                    <div class="alert alert-info mt-3">
+                        <h6 class="mb-2"><i class="fas fa-lightbulb me-2"></i>After Manual Login:</h6>
+                        <ul class="mb-0 small">
+                            <li>Complete the Instagram login process manually</li>
+                            <li>Handle any 2FA, CAPTCHA, or verification challenges</li>
+                            <li>Once logged in, return here and refresh the page</li>
+                            <li>Your login session will be saved for future automated posts</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Automatically check VNC availability when error is shown
+    setTimeout(() => {
+        checkVNCAvailability();
+    }, 500);
+}
+
+function showLoginForm() {
+    document.getElementById('loginStatusSection').style.display = 'none';
+    document.getElementById('loginFormSection').style.display = 'block';
+    document.getElementById('verificationSection').style.display = 'none';
+    document.getElementById('setupProgressSection').style.display = 'none';
+}
+
+function hideAllSections() {
+    document.getElementById('loginStatusSection').style.display = 'none';
+    document.getElementById('chromeLoginSection').style.display = 'none';
+    document.getElementById('loginFormSection').style.display = 'none';
+    document.getElementById('verificationSection').style.display = 'none';
+    document.getElementById('setupProgressSection').style.display = 'none';
+}
+
+function showProgressSection() {
+    hideAllSections();
+    document.getElementById('setupProgressSection').style.display = 'block';
+}
+
+function startInstagramLogin() {
+    const username = document.getElementById('instagramUsername').value.trim();
+    const password = document.getElementById('instagramPassword').value.trim();
+    
+    if (!username || !password) {
+        showNotification('Please enter both username and password', 'error');
+        return;
+    }
+    
+    // Show progress section
+    showProgressSection();
+    updateProgress(10, 'Starting login process...');
+    
+    // Disable submit button
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging in...';
+    
+    // Start login process
+    fetch('/api/login/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: username,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Start monitoring login progress
+            startLoginProgressMonitoring();
+        } else {
+            displayLoginError(data.error || 'Failed to start login process');
+            resetLoginForm();
+        }
+    })
+    .catch(error => {
+        console.error('Login start error:', error);
+        displayLoginError('Network error during login');
+        resetLoginForm();
+    });
+}
+
+function startLoginProgressMonitoring() {
+    updateProgress(20, 'Monitoring login progress...');
+    
+    let monitoringStartTime = Date.now();
+    const maxMonitoringTime = 900000; // 5 minutes timeout
+    
+    loginCheckInterval = setInterval(() => {
+        // Check for timeout
+        if (Date.now() - monitoringStartTime > maxMonitoringTime) {
+            console.log('Login monitoring timeout reached');
+            stopLoginProgressMonitoring();
+            displayLoginError('Login process timed out. Please try again or use manual login options.');
+            resetLoginForm();
+            return;
+        }
+        
+        fetch('/api/login/status')
+            .then(response => response.json())
+            .then(data => {
+                handleLoginProgress(data);
+            })
+            .catch(error => {
+                console.error('Progress monitoring error:', error);
+                stopLoginProgressMonitoring();
+                displayLoginError('Error monitoring login progress. Please try again.');
+                resetLoginForm();
+            });
+    }, 2000); // Check every 2 seconds
+}
+
+function stopLoginProgressMonitoring() {
+    if (loginCheckInterval) {
+        clearInterval(loginCheckInterval);
+        loginCheckInterval = null;
+    }
+}
+
+function handleLoginProgress(status) {
+    console.log('Login progress status:', status); // Debug log
+    
+    if (!status.running && status.success) {
+        // Login completed successfully
+        stopLoginProgressMonitoring();
+        updateProgress(100, 'Login completed successfully!');
+        
+        setTimeout(() => {
+            checkInstagramLoginStatus();
+            resetLoginForm();
+            showNotification('Successfully logged in to Instagram!', 'success');
+        }, 1500);
+        
+    } else if (!status.running && status.error) {
+        // Login failed - show error with manual options
+        stopLoginProgressMonitoring();
+        setTimeout(() => {
+            displayLoginError(status.error);
+            resetLoginForm();
+        }, 500); // Small delay to ensure proper display
+        
+    } else if (status.requires_verification) {
+        // Email verification required - show countdown
+        stopLoginProgressMonitoring();
+        
+        // Update verification section with countdown
+        const verificationSection = document.getElementById('verificationSection');
+        if (status.countdown_seconds > 0) {
+            const alertElement = verificationSection.querySelector('.alert-warning');
+            if (alertElement) {
+                alertElement.innerHTML = `
+                    <i class="fas fa-envelope me-2"></i>
+                    <strong>Email Verification Required</strong><br>
+                    Instagram has sent a verification code to your email. Please check your email and enter the code below.
+                    <div class="mt-2 text-center">
+                        <span class="badge bg-warning fs-6">Time remaining: ${status.countdown_seconds} seconds</span>
+                    </div>
+                `;
+            }
+        }
+        
+        showVerificationSection();
+        
+        // Start countdown monitoring for verification
+        startVerificationCountdownMonitoring();
+        
+    } else if (status.running) {
+        // Update progress based on step
+        updateProgressByStep(status.step, status.message);
+    } else if (status.step === 'failed') {
+        // Handle failed step specifically
+        stopLoginProgressMonitoring();
+        setTimeout(() => {
+            displayLoginError(status.error || 'Login process failed');
+            resetLoginForm();
+        }, 500);
+    }
+}
+
+function updateProgressByStep(step, message) {
+    let progressPercent = 20;
+    
+    switch (step) {
+        case 'starting':
+            progressPercent = 10;
+            break;
+        case 'chrome_setup':
+            progressPercent = 20;
+            break;
+        case 'login_check':
+            progressPercent = 30;
+            break;
+        case 'navigation':
+            progressPercent = 40;
+            break;
+        case 'login':
+            progressPercent = 60;
+            break;
+        case 'verification_check':
+            progressPercent = 70;
+            break;
+        case 'save_info':
+            progressPercent = 80;
+            break;
+        case 'verification':
+            progressPercent = 90;
+            break;
+        case 'completed':
+            progressPercent = 100;
+            break;
+    }
+    
+    updateProgress(progressPercent, message);
+}
+
+function updateProgress(percent, message) {
+    const progressBar = document.getElementById('setupProgressBar');
+    const progressText = document.getElementById('setupProgressText');
+    
+    progressBar.style.width = percent + '%';
+    progressBar.setAttribute('aria-valuenow', percent);
+    progressText.textContent = message;
+}
+
+function showVerificationSection() {
+    hideAllSections();
+    document.getElementById('verificationSection').style.display = 'block';
+    
+    // Focus on verification input
+    setTimeout(() => {
+        document.getElementById('verificationCode').focus();
+    }, 100);
+}
+
+function submitVerificationCode() {
+    const code = document.getElementById('verificationCode').value.trim();
+    
+    if (!code) {
+        showNotification('Please enter the verification code', 'error');
+        return;
+    }
+    
+    if (code.length !== 6 || !/^\d+$/.test(code)) {
+        showNotification('Verification code must be 6 digits', 'error');
+        return;
+    }
+    
+    // Disable submit button
+    const submitBtn = document.getElementById('verifySubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Verifying...';
+    
+    fetch('/api/login/verify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            code: code
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Verification successful!', 'success');
+            
+            // Show progress and continue setup (not completion)
+            showProgressSection();
+            updateProgress(80, 'Verification successful! Completing login setup...');
+            
+            // Continue monitoring login progress instead of treating as completion
+            // startLoginProgressMonitoring();
+        } else {
+            showNotification(data.error || 'Verification failed', 'error');
+            resetVerificationForm();
+        }
+    })
+    .catch(error => {
+        console.error('Verification error:', error);
+        showNotification('Network error during verification', 'error');
+        resetVerificationForm();
+    });
+}
+
+function logoutInstagram() {
+    if (!confirm('Are you sure you want to logout? This will delete your saved login session.')) {
+        return;
+    }
+    
+    fetch('/api/login/logout', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Successfully logged out from Instagram', 'success');
+            checkInstagramLoginStatus();
+        } else {
+            showNotification(data.error || 'Failed to logout', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Logout error:', error);
+        showNotification('Network error during logout', 'error');
+    });
+}
+
+function resetLoginForm() {
+    // Reset login form
+    document.getElementById('instagramUsername').value = '';
+    document.getElementById('instagramPassword').value = '';
+    
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login to Instagram';
+    
+    resetVerificationForm();
+}
+
+function resetVerificationForm() {
+    // Reset verification form
+    document.getElementById('verificationCode').value = '';
+    
+    const verifyBtn = document.getElementById('verifySubmitBtn');
+    verifyBtn.disabled = false;
+    verifyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Submit Code';
+}
+
+// Add CSS styles for the login interface
+const loginStyles = `
+<style>
+.time-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.time-option {
+    padding: 8px 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    background: white;
+    transition: all 0.2s ease;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.time-option:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.time-option.selected {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.selected-times-display {
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+}
+
+.setting-group {
+    margin-bottom: 2rem;
+}
+
+.setting-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.setting-description {
+    color: #6c757d;
+    font-size: 0.9em;
+    margin-bottom: 1rem;
+}
+
+.time-selector-container {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    background-color: #fafafa;
+}
+
+#setupProgressSection .progress {
+    background-color: #e9ecef;
+}
+
+#setupProgressSection .progress-bar {
+    background-color: #007bff;
+}
+
+.alert-heading {
+    font-weight: 600;
+}
+</style>
+`;
+
+// Inject styles
+document.head.insertAdjacentHTML('beforeend', loginStyles);
+
+// VNC Management Functions
+function showManualLoginOptions() {
+    const manualOptions = document.getElementById('manualLoginOptions');
+    const showBtn = document.getElementById('showManualOptionsBtn');
+    
+    if (manualOptions && showBtn) {
+        if (manualOptions.style.display === 'none') {
+            manualOptions.style.display = 'block';
+            showBtn.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Hide Manual Login Options';
+            showBtn.classList.remove('btn-warning');
+            showBtn.classList.add('btn-outline-warning');
+            
+            // Check VNC availability when showing options
+            checkVNCAvailability();
+            
+            // Scroll the options into view
+            setTimeout(() => {
+                manualOptions.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        } else {
+            manualOptions.style.display = 'none';
+            showBtn.innerHTML = '<i class="fas fa-tools me-1"></i>Show Manual Login Options';
+            showBtn.classList.remove('btn-outline-warning');
+            showBtn.classList.add('btn-warning');
+        }
+    }
+}
+
+function checkVNCAvailability() {
+    fetch('/api/vnc/check')
+        .then(response => response.json())
+        .then(data => {
+            const vncStatus = document.getElementById('vncStatus');
+            if (data.vnc_available) {
+                vncStatus.innerHTML = `
+                    <div class="alert alert-success alert-sm py-1 px-2 mb-0">
+                        <i class="fas fa-check-circle me-1"></i>
+                        VNC is available on this system
+                    </div>
+                `;
+                // Also check current VNC status
+                checkVNCStatus();
+            } else {
+                vncStatus.innerHTML = `
+                    <div class="alert alert-warning alert-sm py-1 px-2 mb-0">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        VNC not available: ${data.error || 'System not compatible'}
+                    </div>
+                `;
+                // Disable VNC buttons
+                document.getElementById('startVNCBtn').disabled = true;
+                document.getElementById('checkVNCBtn').disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error checking VNC availability:', error);
+            const vncStatus = document.getElementById('vncStatus');
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Error checking VNC availability
+                </div>
+            `;
+        });
+}
+
+function startVNCSession() {
+    const startBtn = document.getElementById('startVNCBtn');
+    const checkBtn = document.getElementById('checkVNCBtn');
+    const stopBtn = document.getElementById('stopVNCBtn');
+    const vncStatus = document.getElementById('vncStatus');
+    
+    // Update button state
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Starting VNC...';
+    
+    // Show loading status
+    vncStatus.innerHTML = `
+        <div class="alert alert-info alert-sm py-1 px-2 mb-0">
+            <i class="fas fa-spinner fa-spin me-1"></i>
+            Setting up VNC server and Chrome session...
+        </div>
+    `;
+    
+    fetch('/api/vnc/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const accessInfo = data.access_info;
+            vncStatus.innerHTML = `
+                <div class="alert alert-success alert-sm py-1 px-2 mb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-check-circle me-1"></i>
+                            <strong>VNC Session Active!</strong>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="copyVNCInfo()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="mt-2 small">
+                        <div><strong>Web Access:</strong> <a href="${accessInfo.web_url}" target="_blank" class="text-decoration-none">${accessInfo.web_url}</a></div>
+                        <div><strong>Password:</strong> <code>${accessInfo.vnc_password}</code></div>
+                        <div class="text-muted mt-1">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Chrome is running at Instagram login page. Log in manually and close the VNC session when done.
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Update button states
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            
+            // Show success notification
+            showNotification('VNC session started! Click the web access link to open the remote desktop.', 'success');
+            
+        } else {
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Failed to start VNC: ${data.error}
+                </div>
+            `;
+            showNotification(`VNC session failed: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting VNC session:', error);
+        vncStatus.innerHTML = `
+            <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                <i class="fas fa-times-circle me-1"></i>
+                Network error starting VNC session
+            </div>
+        `;
+        showNotification('Network error starting VNC session', 'error');
+    })
+    .finally(() => {
+        // Reset start button
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start VNC Session';
+    });
+}
+
+function checkVNCStatus() {
+    const vncStatus = document.getElementById('vncStatus');
+    const startBtn = document.getElementById('startVNCBtn');
+    const stopBtn = document.getElementById('stopVNCBtn');
+    
+    fetch('/api/vnc/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.vnc_available && data.status) {
+                const status = data.status;
+                const accessInfo = data.access_info;
+                
+                if (status.vnc_running && status.websockify_running) {
+                    vncStatus.innerHTML = `
+                        <div class="alert alert-success alert-sm py-1 px-2 mb-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    <strong>VNC Active</strong>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="copyVNCInfo()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="mt-2 small">
+                                <div><strong>Web Access:</strong> <a href="${accessInfo.web_url}" target="_blank" class="text-decoration-none">${accessInfo.web_url}</a></div>
+                                <div><strong>Password:</strong> <code>${accessInfo.vnc_password}</code></div>
+                                <div class="text-muted mt-1">
+                                    VNC: ${status.vnc_running ? '✓' : '✗'} | 
+                                    Web: ${status.websockify_running ? '✓' : '✗'} | 
+                                    Chrome: ${status.chrome_running ? '✓' : '✗'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
+                } else {
+                    vncStatus.innerHTML = `
+                        <div class="alert alert-warning alert-sm py-1 px-2 mb-0">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            VNC service partially running or stopped
+                        </div>
+                    `;
+                    startBtn.style.display = 'inline-block';
+                    stopBtn.style.display = 'none';
+                }
+            } else {
+                vncStatus.innerHTML = `
+                    <div class="alert alert-secondary alert-sm py-1 px-2 mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        VNC session not active
+                    </div>
+                `;
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error checking VNC status:', error);
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Error checking VNC status
+                </div>
+            `;
+        });
+}
+
+function stopVNCSession() {
+    const startBtn = document.getElementById('startVNCBtn');
+    const stopBtn = document.getElementById('stopVNCBtn');
+    const vncStatus = document.getElementById('vncStatus');
+    
+    stopBtn.disabled = true;
+    stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Stopping...';
+    
+    fetch('/api/vnc/stop', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            vncStatus.innerHTML = `
+                <div class="alert alert-secondary alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    VNC session stopped successfully
+                </div>
+            `;
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            showNotification('VNC session stopped successfully', 'success');
+        } else {
+            vncStatus.innerHTML = `
+                <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Failed to stop VNC: ${data.error}
+                </div>
+            `;
+            showNotification(`Failed to stop VNC: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error stopping VNC session:', error);
+        vncStatus.innerHTML = `
+            <div class="alert alert-danger alert-sm py-1 px-2 mb-0">
+                <i class="fas fa-times-circle me-1"></i>
+                Network error stopping VNC session
+            </div>
+        `;
+        showNotification('Network error stopping VNC session', 'error');
+    })
+    .finally(() => {
+        stopBtn.disabled = false;
+        stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop VNC';
+    });
+}
+
+function copyVNCInfo() {
+    fetch('/api/vnc/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.vnc_available && data.access_info) {
+                const info = data.access_info;
+                const textToCopy = `VNC Access Information:
+Web URL: ${info.web_url}
+Password: ${info.vnc_password}
+VNC Port: ${info.vnc_port}
+Display: ${info.vnc_display}`;
+                
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showNotification('VNC connection info copied to clipboard!', 'success');
+                }).catch(() => {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = textToCopy;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showNotification('VNC connection info copied to clipboard!', 'success');
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error copying VNC info:', error);
+            showNotification('Error copying VNC info', 'error');
+        });
+}
+
+function startLocalChrome() {
+    showNotification('Starting local Chrome setup... Check your terminal/console for the Chrome window.', 'info');
+    
+    // Make API call to trigger local Chrome setup
+    fetch('/api/setup/chrome_local', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Local Chrome setup completed! Check if login was successful.', 'success');
+            // Refresh login status after some delay
+            setTimeout(() => {
+                checkInstagramLoginStatus();
+            }, 5000);
+        } else {
+            showNotification(`Local Chrome setup failed: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting local Chrome:', error);
+        showNotification('Network error starting local Chrome setup', 'error');
+    });
+}
+
+function startChromeLogin() {
+    const chromeBtn = document.getElementById('chromeLoginBtn');
+    
+    // Update button state
+    chromeBtn.disabled = true;
+    chromeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Opening Chrome...';
+    
+    showNotification('Opening Chrome browser for Instagram login...', 'info');
+    
+    // Make API call to start Chrome login
+    fetch('/api/login/chrome_setup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Chrome opened successfully! Please log in to Instagram manually, then close the browser when done. Your session will be automatically saved.', 'success');
+            
+            // Start monitoring for login completion
+            startChromeLoginMonitoring();
+        } else {
+            showNotification(`Failed to open Chrome: ${data.error}`, 'error');
+            resetChromeLoginBtn();
+        }
+    })
+    .catch(error => {
+        console.error('Error starting Chrome login:', error);
+        showNotification('Network error starting Chrome login', 'error');
+        resetChromeLoginBtn();
+    });
+}
+
+function startChromeLoginMonitoring() {
+    // Update button to show monitoring state
+    const chromeBtn = document.getElementById('chromeLoginBtn');
+    chromeBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Waiting for Login...';
+    
+    // Show status update
+    showNotification('Waiting for you to complete login and close the browser...', 'info');
+    
+    // Monitor login status every 3 seconds
+    const monitorInterval = setInterval(() => {
+        fetch('/api/login/chrome_status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'completed') {
+                    // Login successful - stop monitoring and update UI
+                    clearInterval(monitorInterval);
+                    showNotification('✅ Login completed successfully! Browser was closed and your session has been saved.', 'success');
+                    
+                    // Wait a moment then refresh the entire login status
+                    setTimeout(() => {
+                        checkInstagramLoginStatus();
+                    }, 1000);
+                } else if (data.status === 'error') {
+                    // Login failed - stop monitoring and show error
+                    clearInterval(monitorInterval);
+                    showNotification(data.message || 'Login failed. Please try again.', 'error');
+                    resetChromeLoginBtn();
+                } else if (data.status === 'in_progress') {
+                    // Still waiting for login - update button text with current message
+                    chromeBtn.innerHTML = '<i class="fas fa-clock me-1"></i>Waiting for Login...';
+                    
+                    // Update notification with helpful status if available
+                    if (data.message && data.message.includes('Waiting for you to complete login')) {
+                        // Show a more helpful message
+                        console.log('Status: Waiting for browser to be closed after login...');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking Chrome login status:', error);
+            });
+    }, 3000); // Check every 3 seconds
+    
+    // Stop monitoring after 15 minutes (increased from 10)
+    setTimeout(() => {
+        clearInterval(monitorInterval);
+        if (chromeBtn.innerHTML.includes('Waiting for Login')) {
+            showNotification('Login monitoring stopped after 15 minutes. You can manually refresh the page to check login status or click the Chrome button again.', 'warning');
+            resetChromeLoginBtn();
+        }
+    }, 900000); // 15 minutes
+}
+
+function resetChromeLoginBtn() {
+    const chromeBtn = document.getElementById('chromeLoginBtn');
+    chromeBtn.disabled = false;
+    
+    // Check if user is logged in to show appropriate button text
+    fetch('/api/login/check')
+        .then(response => response.json())
+        .then(data => {
+            if (data.logged_in) {
+                chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome';
+            } else {
+                chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome & Login';
+            }
+        })
+        .catch(() => {
+            // Default to login text if check fails
+            chromeBtn.innerHTML = '<i class="fab fa-chrome me-1"></i>Open Chrome & Login';
+        });
+}
+
+function startVerificationCountdownMonitoring() {
+    // Clear any existing interval
+    if (verificationCountdownInterval) {
+        clearInterval(verificationCountdownInterval);
+    }
+    
+    verificationCountdownInterval = setInterval(() => {
+        fetch('/api/login/status')
+            .then(response => response.json())
+            .then(status => {
+                if (status.requires_verification && status.countdown_seconds > 0) {
+                    // Update countdown display
+                    const verificationSection = document.getElementById('verificationSection');
+                    const alertElement = verificationSection.querySelector('.alert-warning');
+                    if (alertElement) {
+                        alertElement.innerHTML = `
+                            <i class="fas fa-envelope me-2"></i>
+                            <strong>Email Verification Required</strong><br>
+                            Instagram has sent a verification code to your email. Please check your email and enter the code below.
+                            <div class="mt-2 text-center">
+                                <span class="badge bg-warning fs-6">Time remaining: ${status.countdown_seconds} seconds</span>
+                            </div>
+                        `;
+                    }
+                } else if (!status.requires_verification || status.countdown_seconds <= 0) {
+                    // Stop monitoring if verification no longer required or timed out
+                    stopVerificationCountdownMonitoring();
+                    
+                    if (status.error) {
+                        // Show timeout error
+                        displayLoginError(status.error);
+                        resetLoginForm();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking verification countdown:', error);
+                stopVerificationCountdownMonitoring();
+            });
+    }, 1000); // Update every second
+}
+
+function stopVerificationCountdownMonitoring() {
+    if (verificationCountdownInterval) {
+        clearInterval(verificationCountdownInterval);
+        verificationCountdownInterval = null;
+    }
+}
+
+// Start scheduler function
+function startScheduler() {
+    const startBtn = document.getElementById('startSchedulerBtn');
+    const stopBtn = document.getElementById('stopSchedulerBtn');
+    
+    // Disable button and show loading
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Starting...';
+    
+    fetch('/api/scheduler/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Scheduler started successfully!', 'success');
+            // Refresh status after a short delay
+            setTimeout(() => {
+                loadSchedulerStatus();
+            }, 1000);
+        } else {
+            showNotification('Failed to start scheduler: ' + data.message, 'error');
+            // Reset button state
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start Scheduler';
+        }
+    })
+    .catch(error => {
+        showNotification('Error starting scheduler: ' + error, 'error');
+        // Reset button state
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play me-1"></i>Start Scheduler';
+    });
+}
+
+// Stop scheduler function
+function stopScheduler() {
+    const startBtn = document.getElementById('startSchedulerBtn');
+    const stopBtn = document.getElementById('stopSchedulerBtn');
+    
+    // Disable button and show loading
+    stopBtn.disabled = true;
+    stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Stopping...';
+    
+    fetch('/api/scheduler/stop', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Scheduler stopped successfully!', 'success');
+            // Refresh status after a short delay
+            setTimeout(() => {
+                loadSchedulerStatus();
+            }, 1000);
+        } else {
+            showNotification('Failed to stop scheduler: ' + data.message, 'error');
+            // Reset button state
+            stopBtn.disabled = false;
+            stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop Scheduler';
+        }
+    })
+    .catch(error => {
+        showNotification('Error stopping scheduler: ' + error, 'error');
+        // Reset button state
+        stopBtn.disabled = false;
+        stopBtn.innerHTML = '<i class="fas fa-stop me-1"></i>Stop Scheduler';
+    });
+}
+</script>
+{% endblock %} 
