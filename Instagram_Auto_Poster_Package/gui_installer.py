@@ -507,98 +507,186 @@ class InstagramAutoPoserInstaller:
             # Change to app directory
             os.chdir(self.app_dir)
             
-            # Determine setup script to run based on platform
+            # Determine setup script
             if platform.system() == "Windows":
-                # Try to use .exe first, fallback to .bat
-                setup_exe = os.path.join(self.app_dir, "setup_noninteractive.exe")
-                setup_bat = os.path.join(self.app_dir, "setup_noninteractive.bat")
+                setup_script_path = self.app_dir / "setup_noninteractive.bat"
+                setup_script = str(setup_script_path.resolve())  # Get absolute path
                 
-                if os.path.exists(setup_exe):
-                    setup_script = [setup_exe]
-                    use_shell = False
-                    self.log(f"Using Windows executable: {setup_exe}")
-                elif os.path.exists(setup_bat):
-                    setup_script = ["cmd.exe", "/c", setup_bat]
-                    use_shell = True
-                    self.log(f"Using Windows batch file: {setup_bat}")
-                else:
-                    self.log("Neither setup_noninteractive.exe nor setup_noninteractive.bat found!")
-                    return False
+                # Verify the batch file exists before trying to run it
+                if not setup_script_path.exists():
+                    raise FileNotFoundError(f"Setup script not found: {setup_script}")
+                
+                self.log_message(f"🔍 Batch file found: {setup_script}")
+                self.log_message(f"🔍 Working directory: {self.app_dir}")
+                
+                # For Windows paths with spaces, ensure proper quoting
+                if ' ' in setup_script:
+                    setup_script = f'"{setup_script}"'
+                    self.log_message("🔧 Added quotes for spaces in path")
             else:
-                # Unix-like systems
-                setup_script = os.path.join(self.app_dir, "setup.sh")
-                use_shell = True
-                if not os.path.exists(setup_script):
-                    self.log(f"Setup script not found: {setup_script}")
-                    return False
+                setup_script = "./setup_noninteractive.sh"
             
-            try:
-                # For Windows executables, use different subprocess flags
-                if platform.system() == "Windows" and not use_shell:
+            self.log_message(f"🔧 Running setup script: {setup_script}")
+            self.update_status("Installing Python and dependencies...")
+            
+            # Run setup process
+            if platform.system() == "Windows":
+                # On Windows, explicitly call batch file with cmd.exe
+                self.log_message(f"🔧 Executing: cmd.exe /c {setup_script}")
+                self.log_message(f"🔧 Current working directory: {os.getcwd()}")
+                self.log_message(f"🔧 Target working directory: {self.app_dir}")
+                
+                try:
                     process = subprocess.Popen(
-                        setup_script,
+                        ["cmd.exe", "/c", setup_script],
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         text=True,
-                        cwd=self.app_dir,
-                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                        cwd=str(self.app_dir),  # Ensure string path
+                        shell=False  # Explicitly no shell since we're using cmd.exe
                     )
-                else:
-                    # For batch files and Unix systems
-                    process = subprocess.Popen(
-                        setup_script,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        shell=use_shell,
-                        cwd=self.app_dir
-                    )
-                
-                # Monitor output in real time
-                while True:
-                    output = process.stdout.readline()
-                    if output == '' and process.poll() is not None:
-                        break
-                    if output:
-                        line = output.strip()
-                        if line:
-                            self.log(line)
-                            # Show progress for key steps
-                            if any(keyword in line.lower() for keyword in 
-                                   ['installing', 'downloading', 'setting up', 'creating']):
-                                progress_increment = 5
-                                self.update_progress(progress_increment)
-                
-                return_code = process.poll()
-                
-                if return_code == 0:
-                    self.log("Setup completed successfully!")
-                    self.update_progress(100)
-                    return True
-                else:
-                    self.log(f"Setup failed with return code: {return_code}")
-                    return False
+                except Exception as e:
+                    self.log_message(f"❌ Failed to start process: {str(e)}")
+                    self.log_message("🔧 Attempting alternative Windows execution method...")
                     
-            except subprocess.SubprocessError as e:
-                self.log(f"Subprocess error: {str(e)}")
-                return False
-            except Exception as e:
-                self.log(f"Unexpected error during setup: {str(e)}")
-                # Additional Windows-specific debugging
-                if platform.system() == "Windows":
-                    self.log(f"Working directory: {self.app_dir}")
-                    self.log(f"Setup script: {setup_script}")
-                    self.log(f"Script exists: {os.path.exists(setup_script[0] if isinstance(setup_script, list) else setup_script)}")
-                    
-                    # Try to get more detailed error info
+                    # Fallback: try with shell=True
                     try:
-                        import winreg
-                        self.log("Windows error troubleshooting:")
-                        self.log(f"Current user: {os.environ.get('USERNAME', 'unknown')}")
-                        self.log(f"Temp directory: {os.environ.get('TEMP', 'unknown')}")
-                    except Exception as debug_e:
-                        self.log(f"Could not get debug info: {debug_e}")
-                return False
+                        process = subprocess.Popen(
+                            setup_script,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            cwd=str(self.app_dir),
+                            shell=True
+                        )
+                        self.log_message("✅ Fallback method started successfully")
+                    except Exception as e2:
+                        raise Exception(f"Both execution methods failed: {str(e)} and {str(e2)}")
+            else:
+                process = subprocess.Popen(
+                    ["bash", setup_script],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=self.app_dir
+                )
+            
+            # Read output line by line
+            for line in process.stdout:
+                line = line.strip()
+                if line:
+                    # Filter and format output
+                    if "INFO" in line or "SUCCESS" in line:
+                        self.log_message(f"✅ {line}")
+                    elif "WARNING" in line:
+                        self.log_message(f"⚠️ {line}")
+                    elif "ERROR" in line:
+                        self.log_message(f"❌ {line}")
+                    elif "Failed" in line or "failed" in line:
+                        self.log_message(f"❌ {line}")
+                    elif "Installing" in line or "installing" in line:
+                        self.log_message(f"📦 {line}")
+                    else:
+                        self.log_message(line)
+                    
+                    # Update status based on content
+                    if "python" in line.lower():
+                        self.update_status("Setting up Python...")
+                    elif "pip" in line.lower() or "install" in line.lower():
+                        self.update_status("Installing dependencies...")
+                    elif "chrome" in line.lower():
+                        self.update_status("Checking Chrome installation...")
+                    elif "virtual" in line.lower():
+                        self.update_status("Creating virtual environment...")
+            
+            process.wait()
+            
+            if process.returncode == 0:
+                # Verify installation by testing imports
+                self.log_message("🧪 Verifying installation by testing imports...")
+                self.update_status("Verifying installation...")
+                
+                # Try to import critical modules
+                venv_python = self.app_dir / "venv" / "Scripts" / "python.exe"
+                
+                if venv_python.exists():
+                    python_cmd = str(venv_python)
+                    self.log_message(f"✅ Testing with: {python_cmd}")
+                    
+                    # Test critical imports
+                    critical_modules = ["flask", "selenium", "PIL", "requests", "dotenv"]
+                    all_imports_ok = True
+                    
+                    for module in critical_modules:
+                        try:
+                            result = subprocess.run(
+                                [python_cmd, "-c", f"import {module}; print('{module} OK')"],
+                                cwd=self.app_dir,
+                                capture_output=True,
+                                text=True,
+                                timeout=10
+                            )
+                            
+                            if result.returncode == 0:
+                                self.log_message(f"✅ {module} import successful")
+                            else:
+                                self.log_message(f"❌ {module} import failed: {result.stderr}")
+                                all_imports_ok = False
+                        except Exception as e:
+                            self.log_message(f"❌ Could not test {module}: {str(e)}")
+                            all_imports_ok = False
+                    
+                    if not all_imports_ok:
+                        self.log_message("⚠️ Some imports failed - setup may be incomplete")
+                        messagebox.showwarning(
+                            "Setup Warning",
+                            "Setup completed but some dependencies may not have installed correctly.\n\n" +
+                            "The application might not work properly. Check the log for details."
+                        )
+                    else:
+                        self.log_message("✅ All critical modules imported successfully!")
+                
+                self.setup_complete = True
+                self.update_status("✅ Setup completed successfully!")
+                self.log_message("🎉 Setup completed successfully!")
+                self.log_message("🌐 You can now access the app at: http://localhost:5003")
+                
+                # Update UI for launch mode
+                self.action_button.config(
+                    text="Launch App",
+                    bg="#2196f3",
+                    command=self.launch_app,
+                    state="normal"
+                )
+                
+                # Auto-launch the app after setup
+                self.log_message("🚀 Auto-launching application...")
+                time.sleep(1)
+                self.launch_app()
+                
+            else:
+                self.update_status("❌ Setup failed!")
+                self.log_message("❌ Setup failed! Please check the errors above.")
+                self.log_message(f"❌ Setup process exited with code: {process.returncode}")
+                self.action_button.config(state="normal")
+                messagebox.showerror(
+                    "Setup Failed",
+                    "Setup encountered errors. Please check the log for details.\n\n" +
+                    "Common issues:\n" +
+                    "• Internet connection problems during download\n" +
+                    "• Antivirus blocking installation\n" +
+                    "• Insufficient disk space\n" +
+                    "• Python/pip configuration issues"
+                )
+        
+        except Exception as e:
+            self.update_status(f"❌ Error: {str(e)}")
+            self.log_message(f"❌ Error: {str(e)}")
+            self.action_button.config(state="normal")
+            messagebox.showerror("Error", f"Setup failed with error:\n{str(e)}")
+        
+        finally:
+            self.progress.stop()
     
     def launch_app(self):
         """Launch the application"""
@@ -1416,116 +1504,6 @@ X-GNOME-Autostart-enabled=true
         except Exception as e:
             self.log_message(f"❌ Fallback method also failed: {str(e)}")
             self.handle_failed_launch(f"All Windows launch methods failed: {str(e)}")
-
-    def start_server_process(self):
-        """Start the Flask server using executable or batch files"""
-        try:
-            # Determine start script to run based on platform
-            if platform.system() == "Windows":
-                # Try to use .exe first, fallback to .bat
-                start_exe = self.app_dir / "start_noninteractive.exe"
-                start_bat = self.app_dir / "start_noninteractive.bat"
-                
-                if start_exe.exists():
-                    start_script = [str(start_exe)]
-                    use_shell = False
-                    self.log_message(f"Using Windows start executable: {start_exe}")
-                elif start_bat.exists():
-                    start_script = ["cmd.exe", "/c", str(start_bat)]
-                    use_shell = True
-                    self.log_message(f"Using Windows start batch file: {start_bat}")
-                else:
-                    self.log_message("Neither start_noninteractive.exe nor start_noninteractive.bat found!")
-                    return False
-            else:
-                # Unix-like systems
-                start_script = [str(self.app_dir / "start.sh")]
-                use_shell = True
-                if not (self.app_dir / "start.sh").exists():
-                    self.log_message(f"Start script not found: {self.app_dir / 'start.sh'}")
-                    return False
-
-            self.log_message("Starting Instagram Auto Poster server...")
-            
-            # Start the server process
-            if platform.system() == "Windows" and not use_shell:
-                # For Windows executables
-                self.server_process = subprocess.Popen(
-                    start_script,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    stdin=subprocess.DEVNULL,
-                    cwd=self.app_dir,
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                )
-            else:
-                # For batch files and Unix systems
-                self.server_process = subprocess.Popen(
-                    start_script,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    stdin=subprocess.DEVNULL,
-                    shell=use_shell,
-                    cwd=self.app_dir
-                )
-            
-            self.log_message(f"Server process started with PID: {self.server_process.pid}")
-            
-            # Wait a moment and check if process is still running
-            time.sleep(2)
-            if self.server_process.poll() is None:
-                self.log_message("Server process is running")
-                return True
-            else:
-                self.log_message(f"Server process exited early with code: {self.server_process.returncode}")
-                return False
-                
-        except Exception as e:
-            self.log_message(f"Error starting server: {str(e)}")
-            return False
-    
-    def stop_server(self):
-        """Stop the server process"""
-        try:
-            self.log_message("🛑 Stopping server...")
-            
-            # Kill all processes related to our app
-            self.find_and_kill_processes()
-            
-            # Also terminate our tracked process if it exists
-            if self.server_process and self.server_process.poll() is None:
-                if platform.system() == "Windows":
-                    # On Windows, send CTRL_BREAK_EVENT to the process group
-                    try:
-                        self.server_process.send_signal(signal.CTRL_BREAK_EVENT)
-                        self.server_process.wait(timeout=3)
-                    except:
-                        # Force kill the process tree
-                        subprocess.run(["taskkill", "/f", "/t", "/pid", str(self.server_process.pid)], 
-                                     capture_output=True)
-                else:
-                    # On Unix-like systems, kill the process group
-                    try:
-                        os.killpg(os.getpgid(self.server_process.pid), signal.SIGTERM)
-                        self.server_process.wait(timeout=3)
-                    except:
-                        # Force kill if it doesn't respond
-                        try:
-                            os.killpg(os.getpgid(self.server_process.pid), signal.SIGKILL)
-                        except:
-                            pass
-                
-                self.server_process = None
-            
-            self.update_server_status(False)
-            # Clear server state when stopped
-            self.save_server_state(False)
-            self.clear_server_state()
-            self.log_message("✅ Server stopped successfully!")
-            self.update_status("Server stopped")
-            
-        except Exception as e:
-            self.log_message(f"⚠️ Error stopping server: {str(e)}")
 
 if __name__ == "__main__":
     app = InstagramAutoPoserInstaller()

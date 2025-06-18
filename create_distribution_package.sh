@@ -2094,37 +2094,766 @@ else
     ARCHIVE_NAME="$PACKAGE_DIR"
 fi
 
-# Create file list
-print_status "Creating file inventory..."
-find "$PACKAGE_DIR" -type f | sort > "${PACKAGE_DIR}_file_list.txt"
+# Create Windows MSI Installer using NSIS
+print_status "Creating professional Windows MSI installer..."
 
-echo ""
-echo "=============================================="
-print_success "🎉 Modern GUI Package Created Successfully!"
-echo "=============================================="
-echo ""
-print_status "Package structure:"
-echo "  📁 $PACKAGE_DIR/ (clean main folder)"
-echo "    💻 Instagram Auto Poster.bat (Windows GUI launcher)"
-echo "    🍎 Instagram Auto Poster.command (macOS GUI launcher)"
-echo "    🐧 Instagram Auto Poster.desktop (Linux launcher)"
-echo "    ⚙️ gui_installer.py (Modern GUI installer)"
-echo "    📄 USER_GUIDE.md (User guide)"
-echo "    📁 InstagramAutoPoster/ (all application files)"
-if [[ "$ARCHIVE_NAME" != "$PACKAGE_DIR" ]]; then
-    echo "  📦 $ARCHIVE_NAME (compressed archive)"
-fi
-echo "  📄 ${PACKAGE_DIR}_file_list.txt (file inventory)"
-echo ""
-print_status "🌟 Modern User Experience Features:"
-echo "  ✨ Beautiful GUI installer with progress bars"
-echo "  🚫 No scary terminal windows"
-echo "  🎯 One-click setup and launch"
-echo "  🔄 Auto-detection of setup vs launch mode"
-echo "  📊 Real-time installation progress"
-echo "  🌐 Auto-opens browser when ready"
-echo "  💡 Clear, friendly error messages"
-echo "  🎨 Native OS look and feel"
-echo ""
-print_success "Ready to distribute! Users just double-click and go! 🚀"
-echo "==============================================" 
+# Create NSIS installer script
+cat > "installer.nsi" << 'EOF'
+; Instagram Auto Poster - Professional Windows Installer
+; Created with NSIS (Nullsoft Scriptable Install System)
+
+!define APP_NAME "Instagram Auto Poster"
+!define APP_VERSION "1.0.0"
+!define APP_PUBLISHER "Instagram Auto Poster Team"
+!define APP_URL "https://github.com/your-repo/instagram-auto-poster"
+!define APP_DESCRIPTION "Professional Instagram automation tool with modern GUI"
+
+; Installer name and output file
+Name "${APP_NAME}"
+OutFile "Instagram_Auto_Poster_Installer_${TIMESTAMP}.exe"
+InstallDir "$PROGRAMFILES\InstagramAutoPoster"
+RequestExecutionLevel admin
+
+; Modern UI includes
+!include "MUI2.nsh"
+!include "FileFunc.nsh"
+!include "LogicLib.nsh"
+!include "WinVer.nsh"
+
+; MUI Settings
+!define MUI_ABORTWARNING
+!define MUI_ICON "installer_icon.ico"
+!define MUI_UNICON "installer_icon.ico"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "installer_header.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "installer_welcome.bmp"
+
+; Welcome page
+!insertmacro MUI_PAGE_WELCOME
+
+; License page (optional)
+!insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
+
+; Directory page
+!insertmacro MUI_PAGE_DIRECTORY
+
+; Components page
+!insertmacro MUI_PAGE_COMPONENTS
+
+; Installation page
+!insertmacro MUI_PAGE_INSTFILES
+
+; Finish page
+!define MUI_FINISHPAGE_RUN "$INSTDIR\Instagram Auto Poster.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Launch Instagram Auto Poster"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\USER_GUIDE.txt"
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "Show User Guide"
+!insertmacro MUI_PAGE_FINISH
+
+; Uninstaller pages
+!insertmacro MUI_UNPAGE_WELCOME
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_UNPAGE_FINISH
+
+; Languages
+!insertmacro MUI_LANGUAGE "English"
+
+; Version Information
+VIProductVersion "1.0.0.0"
+VIAddVersionKey "ProductName" "${APP_NAME}"
+VIAddVersionKey "Comments" "${APP_DESCRIPTION}"
+VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
+VIAddVersionKey "LegalCopyright" "© 2024 ${APP_PUBLISHER}"
+VIAddVersionKey "FileDescription" "${APP_NAME} Installer"
+VIAddVersionKey "FileVersion" "${APP_VERSION}"
+VIAddVersionKey "ProductVersion" "${APP_VERSION}"
+VIAddVersionKey "InternalName" "${APP_NAME}"
+VIAddVersionKey "OriginalFilename" "Instagram_Auto_Poster_Installer.exe"
+
+; Installer sections
+Section "Core Application" SecCore
+    SectionIn RO  ; Read-only section (always installed)
+    
+    SetOutPath "$INSTDIR"
+    
+    ; Copy all application files
+    File /r "Instagram_Auto_Poster_Package\*.*"
+    
+    ; Create desktop shortcut
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
+    
+    ; Create Start Menu shortcuts
+    CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\User Guide.lnk" "$INSTDIR\USER_GUIDE.txt"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+    
+    ; Write registry keys for Add/Remove Programs
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayName" "${APP_NAME}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString" "$INSTDIR\Uninstall.exe"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" "$INSTDIR\icon.ico"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "Publisher" "${APP_PUBLISHER}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayVersion" "${APP_VERSION}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "URLInfoAbout" "${APP_URL}"
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoModify" 1
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoRepair" 1
+    
+    ; Calculate and write installation size
+    ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+    IntFmt $0 "0x%08X" $0
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "$0"
+    
+    ; Create uninstaller
+    WriteUninstaller "$INSTDIR\Uninstall.exe"
+    
+SectionEnd
+
+Section "Python Runtime" SecPython
+    DetailPrint "Checking Python installation..."
+    
+    ; Check if Python is already installed
+    nsExec::ExecToStack 'python --version'
+    Pop $0
+    ${If} $0 != 0
+        ; Python not found, download and install
+        DetailPrint "Python not found. Installing Python 3.11..."
+        
+        ; Download Python installer
+        inetc::get "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe" "$TEMP\python_installer.exe"
+        Pop $0
+        ${If} $0 == "OK"
+            DetailPrint "Installing Python..."
+            ; Install Python silently
+            nsExec::ExecToLog '"$TEMP\python_installer.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_tcltk=1'
+            Pop $0
+            ${If} $0 == 0
+                DetailPrint "Python installed successfully!"
+            ${Else}
+                DetailPrint "Python installation failed. Please install manually."
+            ${EndIf}
+            Delete "$TEMP\python_installer.exe"
+        ${Else}
+            DetailPrint "Failed to download Python installer."
+        ${EndIf}
+    ${Else}
+        DetailPrint "Python is already installed."
+    ${EndIf}
+SectionEnd
+
+Section "Auto-Startup" SecAutoStart
+    DetailPrint "Setting up auto-startup..."
+    
+    ; Add to Windows startup registry
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "InstagramAutoPoster" "$INSTDIR\Instagram Auto Poster.exe --auto-launch"
+    
+SectionEnd
+
+Section "Desktop Integration" SecDesktop
+    ; Create additional desktop shortcuts
+    CreateShortCut "$DESKTOP\Instagram Auto Poster - Setup.lnk" "$INSTDIR\Instagram Auto Poster.exe" "" "$INSTDIR\icon.ico"
+    
+    ; Register file associations (optional)
+    WriteRegStr HKCR ".iap" "" "InstagramAutoPoster.Project"
+    WriteRegStr HKCR "InstagramAutoPoster.Project" "" "Instagram Auto Poster Project"
+    WriteRegStr HKCR "InstagramAutoPoster.Project\DefaultIcon" "" "$INSTDIR\icon.ico"
+    WriteRegStr HKCR "InstagramAutoPoster.Project\shell\open\command" "" '"$INSTDIR\Instagram Auto Poster.exe" "%1"'
+    
+SectionEnd
+
+; Component descriptions
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecCore} "Core application files (required)"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecPython} "Download and install Python runtime if not present"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecAutoStart} "Start Instagram Auto Poster automatically with Windows"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "Create desktop shortcuts and file associations"
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+
+; Uninstaller section
+Section "Uninstall"
+    ; Remove registry keys
+    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "InstagramAutoPoster"
+    DeleteRegKey HKCR ".iap"
+    DeleteRegKey HKCR "InstagramAutoPoster.Project"
+    
+    ; Remove shortcuts
+    Delete "$DESKTOP\${APP_NAME}.lnk"
+    Delete "$DESKTOP\Instagram Auto Poster - Setup.lnk"
+    RMDir /r "$SMPROGRAMS\${APP_NAME}"
+    
+    ; Remove application files
+    RMDir /r "$INSTDIR"
+    
+SectionEnd
+
+; Functions
+Function .onInit
+    ; Check Windows version
+    ${IfNot} ${AtLeastWin7}
+        MessageBox MB_OK "This application requires Windows 7 or later."
+        Abort
+    ${EndIf}
+    
+    ; Check if already installed
+    ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString"
+    StrCmp $R0 "" done
+    
+    MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION \
+    "${APP_NAME} is already installed. $\n$\nClick OK to remove the previous version or Cancel to cancel this upgrade." \
+    IDOK uninst
+    Abort
+    
+    uninst:
+        ClearErrors
+        ExecWait '$R0 _?=$INSTDIR'
+        
+        IfErrors no_remove_uninstaller done
+        no_remove_uninstaller:
+    
+    done:
+FunctionEnd
+
+Function .onInstSuccess
+    ; Show completion message
+    MessageBox MB_OK "${APP_NAME} has been installed successfully!$\n$\nClick OK to continue."
+FunctionEnd
+EOF
+
+print_success "✓ NSIS installer script created"
+
+# Create installer resources
+print_status "Creating installer resources..."
+
+# Create a simple license file
+cat > "LICENSE.txt" << 'EOF'
+Instagram Auto Poster - End User License Agreement
+
+Copyright (c) 2024 Instagram Auto Poster Team
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+IMPORTANT NOTICE:
+This software is intended for educational and personal use only. Users are 
+responsible for complying with Instagram's Terms of Service and applicable laws.
+The developers assume no responsibility for any misuse of this software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+EOF
+
+# Create installer build script for Windows
+cat > "build_installer.bat" << 'EOF'
+@echo off
+title Building Instagram Auto Poster Installer
+echo ================================================
+echo   Building Professional Windows Installer
+echo ================================================
+echo.
+
+REM Check if NSIS is installed
+where makensis >nul 2>&1
+if %errorlevel% neq 0 (
+    echo NSIS not found! 
+    echo.
+    echo Please install NSIS from: https://nsis.sourceforge.io/Download
+    echo.
+    echo After installation, add NSIS to your PATH or run this from the NSIS directory.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo NSIS found! Building installer...
+echo.
+
+REM Build the installer
+makensis installer.nsi
+
+if %errorlevel% equ 0 (
+    echo.
+    echo ================================================
+    echo   ✅ Installer built successfully!
+    echo ================================================
+    echo.
+    echo The installer has been created and is ready for distribution.
+    echo.
+    echo To digitally sign the installer:
+    echo 1. Get a code signing certificate from a trusted CA
+    echo 2. Use signtool.exe to sign the .exe file
+    echo.
+    echo Example signing command:
+    echo signtool sign /f "certificate.pfx" /p "password" /t "http://timestamp.digicert.com" "Instagram_Auto_Poster_Installer.exe"
+    echo.
+) else (
+    echo.
+    echo ❌ Installer build failed!
+    echo Please check the errors above.
+    echo.
+)
+
+pause
+EOF
+
+# Create signing instructions
+cat > "SIGNING_GUIDE.md" << 'EOF'
+# Digital Signing Guide for Instagram Auto Poster Installer
+
+## Why Digital Signing?
+
+Digital signing your installer provides:
+- ✅ **No "Unknown Publisher" warnings**
+- ✅ **Windows SmartScreen trust**
+- ✅ **Professional appearance**
+- ✅ **User confidence**
+- ✅ **Enterprise deployment compatibility**
+
+## Step 1: Get a Code Signing Certificate
+
+### Option A: Commercial Certificate (Recommended)
+Purchase from trusted Certificate Authorities:
+- **DigiCert** (~$400/year) - Most trusted
+- **Sectigo/Comodo** (~$200/year) - Good value
+- **GlobalSign** (~$300/year) - Reliable
+- **Entrust** (~$500/year) - Enterprise-grade
+
+### Option B: Self-Signed Certificate (Testing Only)
+For testing purposes only (will still show warnings):
+```cmd
+# Create self-signed certificate (PowerShell as Admin)
+New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Your Name" -KeyAlgorithm RSA -KeyLength 2048 -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider" -KeyExportPolicy Exportable -KeyUsage DigitalSignature -CertStoreLocation Cert:\CurrentUser\My
+```
+
+## Step 2: Install Windows SDK (for signtool.exe)
+
+Download and install **Windows SDK** from Microsoft:
+- https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
+
+Or install via **Visual Studio Installer** (lighter option):
+- Select "MSVC v143 - VS 2022 C++ x64/x86 build tools"
+- Select "Windows 11 SDK"
+
+## Step 3: Sign Your Installer
+
+### Basic Signing (PFX file)
+```cmd
+# Replace with your actual paths and password
+signtool sign ^
+  /f "path\to\your\certificate.pfx" ^
+  /p "your-certificate-password" ^
+  /t "http://timestamp.digicert.com" ^
+  /fd sha256 ^
+  /v ^
+  "Instagram_Auto_Poster_Installer_TIMESTAMP.exe"
+```
+
+### Advanced Signing (Certificate Store)
+```cmd
+# If certificate is in Windows Certificate Store
+signtool sign ^
+  /n "Your Certificate Subject Name" ^
+  /t "http://timestamp.digicert.com" ^
+  /fd sha256 ^
+  /v ^
+  "Instagram_Auto_Poster_Installer_TIMESTAMP.exe"
+```
+
+### EV Certificate Signing (USB Token)
+```cmd
+# For Extended Validation certificates on USB tokens
+signtool sign ^
+  /sha1 "certificate-thumbprint" ^
+  /tr "http://timestamp.digicert.com" ^
+  /td sha256 ^
+  /fd sha256 ^
+  /v ^
+  "Instagram_Auto_Poster_Installer_TIMESTAMP.exe"
+```
+
+## Step 4: Verify Signature
+
+```cmd
+# Verify the signature is valid
+signtool verify /pa /v "Instagram_Auto_Poster_Installer_TIMESTAMP.exe"
+```
+
+## Step 5: Build Reputation (Important!)
+
+Even with a valid signature, Windows SmartScreen may still show warnings for new certificates. To build reputation:
+
+1. **Start Small**: Distribute to trusted users first
+2. **Volume Matters**: More downloads = faster reputation building
+3. **Clean History**: Ensure no malware detections
+4. **Time**: Reputation builds over 2-4 weeks typically
+5. **EV Certificates**: Get immediate reputation (recommended for commercial use)
+
+## Automated Signing Script
+
+Create `sign_installer.bat`:
+
+```bat
+@echo off
+set INSTALLER_NAME=Instagram_Auto_Poster_Installer_%date:~10,4%%date:~4,2%%date:~7,2%.exe
+set CERT_PATH=path\to\your\certificate.pfx
+set CERT_PASS=your-password
+
+echo Signing %INSTALLER_NAME%...
+
+signtool sign ^
+  /f "%CERT_PATH%" ^
+  /p "%CERT_PASS%" ^
+  /t "http://timestamp.digicert.com" ^
+  /fd sha256 ^
+  /tr "http://timestamp.digicert.com" ^
+  /td sha256 ^
+  /v ^
+  "%INSTALLER_NAME%"
+
+if %errorlevel% equ 0 (
+    echo ✅ Signing successful!
+    echo Verifying signature...
+    signtool verify /pa /v "%INSTALLER_NAME%"
+) else (
+    echo ❌ Signing failed!
+)
+
+pause
+```
+
+## Certificate Recommendations
+
+### For Teams/Organizations:
+- **DigiCert EV Code Signing** - Immediate SmartScreen reputation
+- **3-year certificates** - Better value for ongoing projects
+
+### For Individual Developers:
+- **Sectigo/Comodo Standard** - Good balance of cost and trust
+- **1-year certificate** - Lower initial investment
+
+### For Open Source Projects:
+- Consider **GitHub Sponsors** for certificate funding
+- Some CAs offer discounts for open source projects
+
+## Troubleshooting
+
+### Common Issues:
+
+**"SignTool Error: No certificates were found that met all the given criteria"**
+- Certificate not in the correct store
+- Wrong certificate subject name
+- Certificate expired
+
+**"The specified timestamp server either could not be reached or returned an invalid response"**
+- Try different timestamp servers:
+  - `http://timestamp.digicert.com`
+  - `http://time.certum.pl`
+  - `http://timestamp.globalsign.com/scripts/timstamp.dll`
+
+**SmartScreen still shows warnings**
+- Normal for new certificates
+- Build reputation over time
+- Consider EV certificate for immediate trust
+
+## Final Notes
+
+- Always test signed installers on clean Windows machines
+- Keep certificates secure and backed up
+- Monitor certificate expiration dates
+- Consider automated signing in CI/CD pipelines
+
+Happy signing! 🔐✨
+EOF
+
+print_success "✓ Created signing guide and build scripts"
+
+# Create PowerShell installer builder (alternative to NSIS)
+cat > "build_installer.ps1" << 'EOF'
+# Instagram Auto Poster - PowerShell Installer Builder
+# Alternative to NSIS for creating Windows installers
+
+param(
+    [string]$OutputPath = ".",
+    [switch]$Sign,
+    [string]$CertificatePath,
+    [string]$CertificatePassword
+)
+
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "   Instagram Auto Poster - Installer Builder" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Check if NSIS is available
+$nsisPath = Get-Command "makensis" -ErrorAction SilentlyContinue
+
+if (-not $nsisPath) {
+    Write-Host "❌ NSIS not found!" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Please install NSIS from: https://nsis.sourceforge.io/Download" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "After installation:" -ForegroundColor White
+    Write-Host "1. Add NSIS to your PATH environment variable" -ForegroundColor White
+    Write-Host "2. Or run this script from the NSIS installation directory" -ForegroundColor White
+    Write-Host ""
+    exit 1
+}
+
+Write-Host "✅ NSIS found at: $($nsisPath.Source)" -ForegroundColor Green
+Write-Host ""
+
+# Build the installer
+Write-Host "🔨 Building installer..." -ForegroundColor Blue
+try {
+    & makensis "installer.nsi"
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""
+        Write-Host "✅ Installer built successfully!" -ForegroundColor Green
+        
+        # Find the created installer
+        $installerFile = Get-ChildItem -Name "Instagram_Auto_Poster_Installer_*.exe" | Select-Object -First 1
+        
+        if ($installerFile) {
+            Write-Host "📦 Installer created: $installerFile" -ForegroundColor Cyan
+            
+            # Sign the installer if requested
+            if ($Sign -and $CertificatePath) {
+                Write-Host ""
+                Write-Host "🔐 Digitally signing installer..." -ForegroundColor Blue
+                
+                # Check if signtool is available
+                $signtool = Get-Command "signtool" -ErrorAction SilentlyContinue
+                
+                if ($signtool) {
+                    try {
+                        if ($CertificatePassword) {
+                            & signtool sign /f $CertificatePath /p $CertificatePassword /t "http://timestamp.digicert.com" /fd sha256 /v $installerFile
+                        } else {
+                            & signtool sign /f $CertificatePath /t "http://timestamp.digicert.com" /fd sha256 /v $installerFile
+                        }
+                        
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Host "✅ Installer signed successfully!" -ForegroundColor Green
+                            
+                            # Verify signature
+                            Write-Host "🔍 Verifying signature..." -ForegroundColor Blue
+                            & signtool verify /pa /v $installerFile
+                        } else {
+                            Write-Host "❌ Signing failed!" -ForegroundColor Red
+                        }
+                    } catch {
+                        Write-Host "❌ Signing error: $($_.Exception.Message)" -ForegroundColor Red
+                    }
+                } else {
+                    Write-Host "❌ signtool.exe not found! Please install Windows SDK." -ForegroundColor Red
+                }
+            }
+            
+            Write-Host ""
+            Write-Host "================================================" -ForegroundColor Cyan
+            Write-Host "   🎉 Build Complete!" -ForegroundColor Green
+            Write-Host "================================================" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "✨ Your professional installer is ready!" -ForegroundColor White
+            Write-Host "📁 Location: $(Get-Location)\$installerFile" -ForegroundColor White
+            Write-Host ""
+            
+            if (-not $Sign) {
+                Write-Host "💡 To digitally sign your installer:" -ForegroundColor Yellow
+                Write-Host "   .\build_installer.ps1 -Sign -CertificatePath 'path\to\cert.pfx' -CertificatePassword 'password'" -ForegroundColor Gray
+                Write-Host ""
+                Write-Host "📖 See SIGNING_GUIDE.md for detailed instructions" -ForegroundColor Yellow
+                Write-Host ""
+            }
+            
+            Write-Host "🚀 Ready for distribution!" -ForegroundColor Green
+            
+        } else {
+            Write-Host "❌ Could not find created installer file!" -ForegroundColor Red
+        }
+        
+    } else {
+        Write-Host "❌ Installer build failed!" -ForegroundColor Red
+        Write-Host "Please check the errors above." -ForegroundColor Yellow
+    }
+    
+} catch {
+    Write-Host "❌ Build error: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "Press any key to continue..." -ForegroundColor Gray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+EOF
+
+print_success "✓ Created PowerShell installer builder"
+
+# Create installation instructions
+cat > "INSTALLER_INSTRUCTIONS.md" << 'EOF'
+# Building Professional Windows Installer
+
+## 🎯 Overview
+
+This creates a professional MSI-style installer that:
+- ✅ **Eliminates all security warnings** (when signed)
+- ✅ **Looks completely professional**
+- ✅ **Installs like commercial software**
+- ✅ **Appears in Add/Remove Programs**
+- ✅ **Creates proper shortcuts**
+- ✅ **Handles Python installation automatically**
+- ✅ **Can be digitally signed for trust**
+
+## 🛠️ Prerequisites
+
+### 1. Install NSIS (Free)
+Download from: https://nsis.sourceforge.io/Download
+- Choose "Latest stable release"
+- Install with default options
+- Add to PATH environment variable
+
+### 2. Install Windows SDK (Free) - For Signing
+Download from: https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
+- Only needed if you want to digitally sign
+- Provides `signtool.exe` for signing
+
+## 🚀 Quick Build
+
+### Method 1: Batch Script (Easiest)
+```cmd
+# Just double-click this file:
+build_installer.bat
+```
+
+### Method 2: PowerShell (Recommended)
+```powershell
+# Basic build
+.\build_installer.ps1
+
+# Build and sign (with certificate)
+.\build_installer.ps1 -Sign -CertificatePath "mycert.pfx" -CertificatePassword "mypassword"
+```
+
+### Method 3: Manual NSIS
+```cmd
+makensis installer.nsi
+```
+
+## 📦 What Gets Created
+
+The installer will be named: `Instagram_Auto_Poster_Installer_YYYYMMDD_HHMMSS.exe`
+
+### Installer Features:
+- 📋 **Welcome screen** with branding
+- 📜 **License agreement** (optional)
+- 📁 **Custom install directory** selection
+- ☑️ **Component selection**:
+  - Core Application (required)
+  - Python Runtime (auto-download if needed)
+  - Auto-Startup (start with Windows)
+  - Desktop Integration (shortcuts & file associations)
+- 📊 **Progress bars** during installation
+- 🏁 **Finish screen** with launch option
+
+### Post-Installation:
+- 🖥️ **Desktop shortcut** created
+- 📋 **Start Menu entries** added
+- ⚙️ **Add/Remove Programs** entry
+- 🔄 **Auto-startup** (if selected)
+- 🔗 **File associations** for .iap files
+
+## 🔐 Digital Signing (Professional)
+
+### Why Sign?
+- ✅ **No "Unknown Publisher" warnings**
+- ✅ **Windows SmartScreen trust**
+- ✅ **Corporate environment compatibility**
+- ✅ **User confidence**
+
+### Get Certificate:
+1. **Purchase** from CA (DigiCert, Sectigo, etc.) - $200-500/year
+2. **Self-sign** for testing (will still show warnings)
+3. **EV Certificate** for immediate trust (recommended)
+
+### Sign Command:
+```cmd
+signtool sign /f "certificate.pfx" /p "password" /t "http://timestamp.digicert.com" /fd sha256 "installer.exe"
+```
+
+See `SIGNING_GUIDE.md` for detailed instructions.
+
+## 🎨 Customization
+
+### Branding
+Edit `installer.nsi` to customize:
+- Company name
+- Product description
+- Icon files
+- Welcome images
+- License text
+
+### Components
+Modify sections in `installer.nsi`:
+- Add/remove installation components
+- Customize shortcuts
+- Change registry entries
+- Add file associations
+
+## 🐛 Troubleshooting
+
+### "NSIS not found"
+- Install NSIS from official website
+- Add NSIS to your PATH
+- Or run from NSIS installation directory
+
+### "signtool not found"
+- Install Windows SDK
+- Add SDK bin folder to PATH
+- Or use full path to signtool.exe
+
+### Installer shows warnings
+- Normal for unsigned installers
+- Get code signing certificate
+- Build reputation over time
+
+## 📋 Distribution Checklist
+
+Before distributing your installer:
+
+- [ ] Test on clean Windows machines
+- [ ] Verify all shortcuts work
+- [ ] Check Add/Remove Programs entry
+- [ ] Test uninstaller
+- [ ] Scan with antivirus (VirusTotal)
+- [ ] Sign with code certificate (recommended)
+- [ ] Test on different Windows versions
+
+## 🎉 Benefits Over .bat Files
+
+| Feature | .bat File | Professional Installer |
+|---------|-----------|------------------------|
+| Security Warnings | ❌ Always shows warnings | ✅ None (when signed) |
+| Professional Look | ❌ Terminal window | ✅ Modern GUI |
+| Add/Remove Programs | ❌ No entry | ✅ Proper entry |
+| Shortcuts | ❌ Manual creation | ✅ Automatic |
+| Uninstaller | ❌ No uninstaller | ✅ Proper uninstaller |
+| Enterprise Ready | ❌ Blocked by many | ✅ Accepted |
+| User Trust | ❌ Looks suspicious | ✅ Looks professional |
+
+Your installer will look and behave exactly like commercial software! 🚀
+EOF
+
+print_success "✓ Created installer instructions"
