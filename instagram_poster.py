@@ -24,7 +24,7 @@ import pytz  # Add timezone support
 # Third-party imports
 from dotenv import load_dotenv
 from PIL import Image
-import openai
+# import openai
 
 # Selenium imports
 from selenium import webdriver
@@ -78,11 +78,11 @@ class InstagramPoster:
         self.wait = None
         
         # Initialize OpenAI if enabled
-        if self.use_chatgpt:
-            openai.api_key = os.getenv('OPENAI_API_KEY')
-            if not openai.api_key:
-                logger.warning("OpenAI API key not found. ChatGPT enhancement disabled.")
-                self.use_chatgpt = False
+        # if self.use_chatgpt:
+        #     openai.api_key = os.getenv('OPENAI_API_KEY')
+        #     if not openai.api_key:
+        #         logger.warning("OpenAI API key not found. ChatGPT enhancement disabled.")
+        #         self.use_chatgpt = False
         
         # Track posted content to avoid duplicates
         self.posted_log_file = Path('posted_content.json')
@@ -732,31 +732,32 @@ class InstagramPoster:
         """Enhance text using ChatGPT"""
         if not self.use_chatgpt:
             return text
+        return text
         
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a social media expert. Enhance the given text to make it more engaging for Instagram posts. Keep it authentic and add relevant hashtags. Keep the original message but make it more appealing."
-                    },
-                    {
-                        "role": "user",
-                        "content": text
-                    }
-                ],
-                max_tokens=500,
-                temperature=0.7
-            )
+        # try:
+        #     response = openai.ChatCompletion.create(
+        #         model="gpt-3.5-turbo",
+        #         messages=[
+        #             {
+        #                 "role": "system",
+        #                 "content": "You are a social media expert. Enhance the given text to make it more engaging for Instagram posts. Keep it authentic and add relevant hashtags. Keep the original message but make it more appealing."
+        #             },
+        #             {
+        #                 "role": "user",
+        #                 "content": text
+        #             }
+        #         ],
+        #         max_tokens=500,
+        #         temperature=0.7
+        #     )
             
-            enhanced_text = response.choices[0].message.content.strip()
-            logger.info("Text enhanced with ChatGPT")
-            return enhanced_text
+        #     enhanced_text = response.choices[0].message.content.strip()
+        #     logger.info("Text enhanced with ChatGPT")
+        #     return enhanced_text
             
-        except Exception as e:
-            logger.error(f"Error enhancing text with ChatGPT: {e}")
-            return text
+        # except Exception as e:
+        #     logger.error(f"Error enhancing text with ChatGPT: {e}")
+        #     return text
     
     def prepare_image(self, image_path: Path) -> Path:
         """Prepare image for Instagram (resize if needed)"""

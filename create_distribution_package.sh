@@ -485,81 +485,107 @@ class InstagramAutoPoserInstaller:
     
     def is_our_server_running(self):
         """Check if our specific Instagram Auto Poster server is running"""
-        if not PSUTIL_AVAILABLE:
-            # If psutil not available, do basic port check only
-            try:
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                result = sock.connect_ex(('localhost', 5003))
-                sock.close()
-                return result == 0
-            except:
-                return False
+        self.log_message("🔍 Checking if server is already running...")
         
+        # Method 1: Simple port check first
+        port_in_use = False
         try:
-            # Method 1: Check if port 5003 is in use AND if it responds to HTTP requests
-            port_in_use = False
-            for conn in psutil.net_connections():
-                if hasattr(conn, 'laddr') and conn.laddr and conn.laddr.port == 5003:
-                    port_in_use = True
-                    break
-            
-            if not port_in_use:
-                return False
-            
-            # Method 2: Try to make a simple HTTP request to verify it's our app
-            try:
-                import urllib.request
-                import urllib.error
-                
-                # Try to access the health endpoint or main page
-                request = urllib.request.Request('http://localhost:5003/health', timeout=2)
-                with urllib.request.urlopen(request) as response:
-                    if response.code == 200:
-                        # It's responding - this is likely our server
-                        return True
-            except (urllib.error.URLError, ConnectionError, OSError):
-                # If health endpoint doesn't exist, try main page
-                try:
-                    request = urllib.request.Request('http://localhost:5003/', timeout=2)
-                    with urllib.request.urlopen(request) as response:
-                        content = response.read().decode('utf-8')
-                        # Look for Instagram Auto Poster specific content
-                        if 'Instagram Auto Poster' in content or 'instagram' in content.lower():
-                            return True
-                except:
-                    pass
-            
-            # Method 3: Check for processes running app.py from our directory
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'cwd']):
-                try:
-                    if proc.info['cmdline']:
-                        cmdline = ' '.join(proc.info['cmdline'])
-                        if ('app.py' in cmdline and 
-                            'python' in proc.info['name'].lower() and 
-                            proc.info['cwd'] and 
-                            str(self.app_dir) in proc.info['cwd']):
-                            return True
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    continue
-            
-            # Method 4: Check for server state file (if we implement it)
-            state_file = self.app_dir / '.server_state'
-            if state_file.exists():
-                try:
-                    with open(state_file, 'r') as f:
-                        state_data = f.read().strip()
-                        if state_data == 'running':
-                            # Verify the PID if stored
-                            return True
-                except:
-                    pass
-            
-            return False
-            
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)  # 2 second timeout
+            result = sock.connect_ex(('localhost', 5003))
+            sock.close()
+            port_in_use = (result == 0)
+            self.log_message(f"🔍 Port 5003 check: {'IN USE' if port_in_use else 'FREE'}")
         except Exception as e:
-            self.log_message(f"⚠️ Error checking server status: {str(e)}")
+            self.log_message(f"⚠️ Port check failed: {str(e)}")
             return False
+        
+        if not port_in_use:
+            self.log_message("✅ Port 5003 is free - no server running")
+            return False
+        
+        # Method 2: Try to make HTTP request to verify it's our app
+        self.log_message("🔍 Port is in use - checking if it's our Instagram server...")
+        try:
+            import urllib.request
+            import urllib.error
+            
+            # Try to access the main page with a short timeout
+            request = urllib.request.Request('http://localhost:5003/')
+            request.add_header('User-Agent', 'InstagramAutoPoster-Checker')
+            
+            with urllib.request.urlopen(request, timeout=3) as response:
+                if response.code == 200:
+                    content = response.read().decode('utf-8', errors='ignore')
+                    # Look for Instagram Auto Poster specific content
+                    if ('Instagram Auto Poster' in content or 
+                        'instagram' in content.lower() or 
+                        'content' in content.lower() and 'upload' in content.lower()):
+                        self.log_message("✅ Confirmed: Instagram Auto Poster server is running")
+                        return True
+                    else:
+                        self.log_message("⚠️ Port 5003 in use by different application")
+                        return False
+                else:
+                    self.log_message(f"⚠️ Unexpected response code: {response.code}")
+                    return False
+                    
+        except urllib.error.URLError as e:
+            self.log_message(f"⚠️ HTTP request failed: {str(e)}")
+            # If HTTP request fails but port is in use, it might still be starting up
+            # Check if it's a connection refused (server not ready) vs other error
+            if "Connection refused" in str(e) or "Connection reset" in str(e):
+                self.log_message("ℹ️ Server might be starting up - treating as not ready")
+                return False
+            else:
+                # Other HTTP error - might be our server but having issues
+                self.log_message("⚠️ Server responding but with errors - treating as running")
+                return True
+                
+        except Exception as e:
+            self.log_message(f"⚠️ Error checking server: {str(e)}")
+            return False
+        
+        # Method 3: Check process list if psutil is available
+        if PSUTIL_AVAILABLE:
+            self.log_message("🔍 Using psutil to check for our app process...")
+            try:
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'cwd']):
+                    try:
+                        if proc.info['cmdline']:
+                            cmdline = ' '.join(proc.info['cmdline'])
+                            if ('app.py' in cmdline and 
+                                'python' in proc.info['name'].lower()):
+                                # Found a Python process running app.py
+                                if (proc.info['cwd'] and 
+                                    'InstagramAutoPoster' in proc.info['cwd']):
+                                    self.log_message(f"✅ Found our app process: PID {proc.info['pid']}")
+                                    return True
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        continue
+                        
+                self.log_message("⚠️ No matching app.py process found")
+            except Exception as e:
+                self.log_message(f"⚠️ Process check failed: {str(e)}")
+        
+        # Method 4: Check server state file
+        state_file = self.app_dir / '.server_state'
+        if state_file.exists():
+            try:
+                with open(state_file, 'r') as f:
+                    state_data = f.read().strip()
+                    if state_data == 'running':
+                        self.log_message("✅ Server state file indicates running")
+                        return True
+                    else:
+                        self.log_message("ℹ️ Server state file indicates stopped")
+            except Exception as e:
+                self.log_message(f"⚠️ Could not read server state: {str(e)}")
+        
+        # If we get here, port is in use but we can't confirm it's our server
+        self.log_message("⚠️ Port 5003 in use but cannot confirm it's our server")
+        return True  # Assume it's running to be safe
     
     def save_server_state(self, running=True):
         """Save server state to file for persistence"""
@@ -692,17 +718,49 @@ class InstagramAutoPoserInstaller:
     
     def run_setup(self):
         """Run the actual setup process"""
+        # Declare global variables at the top of the function
+        global psutil, PSUTIL_AVAILABLE
+        
         try:
             self.update_status("Starting installation...")
             self.log_message("🚀 Starting Instagram Auto Poster setup...")
             self.log_message(f"📁 App directory: {self.app_dir}")
+            
+            # First, install psutil if not available (needed for the installer itself)
+            if not PSUTIL_AVAILABLE:
+                self.log_message("📦 Installing psutil for installer functionality...")
+                self.update_status("Installing psutil...")
+                try:
+                    subprocess.run([sys.executable, "-m", "pip", "install", "psutil"], 
+                                 check=True, capture_output=True, text=True, timeout=60)
+                    self.log_message("✅ psutil installed successfully!")
+                    # Try to import it now
+                    import psutil
+                    PSUTIL_AVAILABLE = True
+                    self.log_message("✅ psutil is now available for use")
+                except Exception as e:
+                    self.log_message(f"⚠️ Could not install psutil: {str(e)}")
+                    self.log_message("⚠️ Continuing with limited functionality...")
             
             # Change to app directory
             os.chdir(self.app_dir)
             
             # Determine setup script
             if platform.system() == "Windows":
-                setup_script = "setup_noninteractive.bat"
+                setup_script_path = self.app_dir / "setup_noninteractive.bat"
+                setup_script = str(setup_script_path.resolve())  # Get absolute path
+                
+                # Verify the batch file exists before trying to run it
+                if not setup_script_path.exists():
+                    raise FileNotFoundError(f"Setup script not found: {setup_script}")
+                
+                self.log_message(f"🔍 Batch file found: {setup_script}")
+                self.log_message(f"🔍 Working directory: {self.app_dir}")
+                
+                # For Windows paths with spaces, ensure proper quoting
+                if ' ' in setup_script:
+                    setup_script = f'"{setup_script}"'
+                    self.log_message("🔧 Added quotes for spaces in path")
             else:
                 setup_script = "./setup_noninteractive.sh"
             
@@ -711,14 +769,37 @@ class InstagramAutoPoserInstaller:
             
             # Run setup process
             if platform.system() == "Windows":
-                process = subprocess.Popen(
-                    setup_script,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    shell=True,
-                    cwd=self.app_dir
-                )
+                # On Windows, explicitly call batch file with cmd.exe
+                self.log_message(f"🔧 Executing: cmd.exe /c {setup_script}")
+                self.log_message(f"🔧 Current working directory: {os.getcwd()}")
+                self.log_message(f"🔧 Target working directory: {self.app_dir}")
+                
+                try:
+                    process = subprocess.Popen(
+                        ["cmd.exe", "/c", setup_script],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        cwd=str(self.app_dir),  # Ensure string path
+                        shell=False  # Explicitly no shell since we're using cmd.exe
+                    )
+                except Exception as e:
+                    self.log_message(f"❌ Failed to start process: {str(e)}")
+                    self.log_message("🔧 Attempting alternative Windows execution method...")
+                    
+                    # Fallback: try with shell=True
+                    try:
+                        process = subprocess.Popen(
+                            setup_script,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            cwd=str(self.app_dir),
+                            shell=True
+                        )
+                        self.log_message("✅ Fallback method started successfully")
+                    except Exception as e2:
+                        raise Exception(f"Both execution methods failed: {str(e)} and {str(e2)}")
             else:
                 process = subprocess.Popen(
                     ["bash", setup_script],
@@ -892,14 +973,9 @@ class InstagramAutoPoserInstaller:
         try:
             self.log_message("📝 Attempting direct Python execution...")
             
-            # Use virtual environment Python if available
-            venv_python = self.app_dir / "venv" / "Scripts" / "python.exe"
-            if venv_python.exists():
-                python_cmd = str(venv_python)
-                self.log_message(f"✅ Using virtual environment Python: {python_cmd}")
-            else:
-                python_cmd = sys.executable
-                self.log_message(f"⚠️ Virtual environment Python not found, using system Python: {python_cmd}")
+            # Use system-wide Python instead of virtual environment
+            python_cmd = sys.executable
+            self.log_message(f"✅ Using system-wide Python: {python_cmd}")
             
             # First, test if app.py can even import without running it
             self.log_message("🔍 Testing app.py imports...")
@@ -927,67 +1003,52 @@ class InstagramAutoPoserInstaller:
             else:
                 self.log_message("✅ Import test passed - all modules available")
             
-            # Start Python with special Windows flags to prevent console buffering and freezing issues
-            startup_info = subprocess.STARTUPINFO()
-            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startup_info.wShowWindow = subprocess.SW_HIDE
+            # Create a completely detached process that won't be affected by the GUI
+            # This is the key fix - we create a separate Python process that runs independently
+            self.log_message("🚀 Starting completely detached Flask server...")
             
             # Set environment variables to prevent Python from freezing
             env = os.environ.copy()
             env['PYTHONUNBUFFERED'] = '1'  # Force unbuffered output
             env['PYTHONDONTWRITEBYTECODE'] = '1'  # Don't write .pyc files
             env['PYTHONIOENCODING'] = 'utf-8'  # Force UTF-8 encoding
-            env['PYTHONLEGACYWINDOWSSTDIO'] = '1'  # Use legacy Windows stdio
             env['FLASK_ENV'] = 'production'  # Set Flask to production mode
-            
-            # Additional Windows-specific environment variables
             env['PYTHONUTF8'] = '1'  # Force UTF-8 mode
-            env['PYTHONFAULTHANDLER'] = '1'  # Enable fault handler
             
+            # Create startup info for hidden window
+            startup_info = subprocess.STARTUPINFO()
+            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startup_info.wShowWindow = subprocess.SW_HIDE
+            
+            # Use simpler process creation that's more compatible
+            # Just use DETACHED_PROCESS to separate from GUI without complex flags
             self.server_process = subprocess.Popen(
-                [python_cmd, "-u", "-X", "dev", "app.py"],  # -u prevents buffering, -X dev for better error handling
+                [python_cmd, "-u", "app.py"],
                 cwd=self.app_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.DEVNULL,  # Prevent waiting for input
                 text=True,
                 env=env,  # Use our custom environment
-                creationflags=(
-                    subprocess.CREATE_NEW_PROCESS_GROUP | 
-                    subprocess.DETACHED_PROCESS |
-                    subprocess.CREATE_NO_WINDOW  # Additional flag to prevent window issues
-                ),
+                creationflags=subprocess.DETACHED_PROCESS,  # Simple detached process
                 startupinfo=startup_info
             )
             
-            # Monitor the process startup
-            self.log_message("⏱️ Monitoring server startup...")
+            # Don't monitor the process output in real-time as this can cause blocking
+            # Instead, just check if the port becomes available
+            self.log_message("⏱️ Waiting for server to start (detached mode)...")
             startup_success = False
-            error_output = ""
             
+            # Give the server time to start without blocking on output
             for attempt in range(15):  # Wait up to 30 seconds
                 time.sleep(2)
                 
-                # Check if process is still alive
-                if self.server_process.poll() is not None:
-                    # Process died, read any error output
-                    self.log_message("💀 Process terminated early!")
-                    try:
-                        stdout, stderr = self.server_process.communicate(timeout=5)
-                        if stderr:
-                            error_output = stderr
-                            self.log_message(f"🔍 Error output: {stderr}")
-                        if stdout:
-                            self.log_message(f"🔍 Standard output: {stdout}")
-                    except:
-                        pass
-                    break
-                
-                # Check if port is listening
+                # Just check if port is listening, don't read process output
                 port_listening = False
                 try:
                     import socket
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(1)  # 1 second timeout
                     result = sock.connect_ex(('localhost', 5003))
                     sock.close()
                     if result == 0:
@@ -1000,23 +1061,43 @@ class InstagramAutoPoserInstaller:
                     self.log_message(f"✅ Server ready after {(attempt + 1) * 2} seconds!")
                     break
                 
+                # Check if process died early (but don't read output as it can block)
+                if self.server_process.poll() is not None:
+                    self.log_message("💀 Process terminated early!")
+                    break
+                
                 self.log_message(f"⏳ Waiting for server... ({attempt + 1}/15)")
             
             if startup_success:
                 self.handle_successful_launch()
             else:
-                if "ModuleNotFoundError" in error_output or "ImportError" in error_output:
-                    self.log_message("🔄 Detected missing dependencies - attempting fix...")
-                    self.attempt_dependency_fix(python_cmd)
+                # Only try to read output if the process has actually terminated
+                if self.server_process.poll() is not None:
+                    try:
+                        stdout, stderr = self.server_process.communicate(timeout=2)
+                        error_output = stderr if stderr else "Unknown error"
+                        if "ModuleNotFoundError" in error_output or "ImportError" in error_output:
+                            self.log_message("🔄 Detected missing dependencies - attempting fix...")
+                            self.attempt_dependency_fix(python_cmd)
+                        else:
+                            self.handle_failed_launch(f"Server failed to start. Error: {error_output}")
+                    except subprocess.TimeoutExpired:
+                        self.handle_failed_launch("Server process not responding")
                 else:
-                    self.handle_failed_launch(f"Server failed to bind to port 5003. Error: {error_output}")
+                    # Process is still running but port not available
+                    self.handle_failed_launch("Server started but port 5003 is not accessible")
                 
         except subprocess.TimeoutExpired:
             self.log_message("⏰ Import test timed out - possible dependency issues")
             self.attempt_dependency_fix(python_cmd)
         except Exception as e:
             self.log_message(f"❌ Direct launch failed: {str(e)}")
-            self.handle_failed_launch(str(e))
+            # Try fallback method for Windows
+            if "parameter is incorrect" in str(e).lower() or "winerror 87" in str(e).lower():
+                self.log_message("🔄 Trying fallback Windows launch method...")
+                self.launch_windows_fallback(python_cmd)
+            else:
+                self.handle_failed_launch(str(e))
     
     def attempt_dependency_fix(self, python_cmd):
         """Attempt to fix missing dependencies"""
@@ -1029,7 +1110,7 @@ class InstagramAutoPoserInstaller:
             
             dependencies = [
                 "selenium", "Pillow", "python-dotenv", "schedule", 
-                "openai", "jiter", "distro", "requests", "flask", "werkzeug", "pytz", 
+                "jiter", "distro", "requests", "flask", "werkzeug", "pytz", 
                 "psutil", "undetected-chromedriver", "setuptools", 
                 "selenium-driverless"
             ]
@@ -1121,31 +1202,64 @@ class InstagramAutoPoserInstaller:
         self.log_message(f"▶️ Running: {start_script}")
         self.update_status("Starting web server...")
         
-        # Start the application process
+        # Start the application process in completely detached mode
+        # This prevents the GUI from blocking the Flask server
         self.server_process = subprocess.Popen(
             ["bash", start_script],
             cwd=self.app_dir,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,  # Prevent waiting for input
             text=True,
-            preexec_fn=os.setsid
+            preexec_fn=os.setsid  # Create new session - completely detached
         )
         
-        # Give it a moment to start
-        time.sleep(3)
+        # Don't monitor output in real-time - just check if port becomes available
+        self.log_message("⏱️ Waiting for server to start (detached mode)...")
+        startup_success = False
         
-        # Check if process is still running (didn't crash immediately)
-        if self.server_process.poll() is None:
+        # Give server time to start without blocking on output reading
+        for attempt in range(15):  # Wait up to 30 seconds
+            time.sleep(2)
+            
+            # Check if port is listening
+            port_listening = False
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)  # 1 second timeout
+                result = sock.connect_ex(('localhost', 5003))
+                sock.close()
+                if result == 0:
+                    port_listening = True
+            except:
+                pass
+            
+            if port_listening:
+                startup_success = True
+                self.log_message(f"✅ Server ready after {(attempt + 1) * 2} seconds!")
+                break
+            
+            # Check if process died early (but don't read output as it can block)
+            if self.server_process.poll() is not None:
+                self.log_message("💀 Process terminated early!")
+                break
+            
+            self.log_message(f"⏳ Waiting for server... ({attempt + 1}/15)")
+        
+        if startup_success:
             self.handle_successful_launch()
         else:
-            # Read any error output
-            output = ""
-            if self.server_process.stdout:
+            # Only try to read output if process has terminated
+            error_output = "Unknown error"
+            if self.server_process.poll() is not None:
                 try:
-                    output = self.server_process.stdout.read()
-                except:
-                    pass
-            self.handle_failed_launch(f"Unix server failed to start. Output: {output}")
+                    stdout, stderr = self.server_process.communicate(timeout=2)
+                    error_output = stderr if stderr else stdout if stdout else "Unknown error"
+                except subprocess.TimeoutExpired:
+                    error_output = "Process not responding"
+            
+            self.handle_failed_launch(f"Unix server failed to start. Output: {error_output}")
     
     def handle_successful_launch(self):
         """Handle successful server launch"""
@@ -1163,13 +1277,31 @@ class InstagramAutoPoserInstaller:
         except Exception as e:
             self.log_message(f"⚠️ Could not auto-open browser: {str(e)}")
         
+        # Show success message and then auto-close the GUI
         messagebox.showinfo(
             "App Launched!",
             "Instagram Auto Poster is now running!\n\n" +
             "The web interface should open automatically.\n" +
             "If not, go to: http://localhost:5003\n\n" +
-            "Use 'Stop Server' button to stop the application."
+            "This window will close automatically.\n" +
+            "The server will continue running in the background.\n\n" +
+            "To stop the server later, reopen this application\n" +
+            "and click 'Stop Server'."
         )
+        
+        # Auto-close the GUI after showing the message
+        self.log_message("✅ Server is running - closing GUI window...")
+        self.log_message("ℹ️ To stop server, reopen this application and click 'Stop Server'")
+        
+        # Close the window immediately after user clicks OK
+        self.root.after(100, self.auto_close_after_launch)
+    
+    def auto_close_after_launch(self):
+        """Auto-close the GUI after successful launch"""
+        # Save the running state before closing
+        self.save_server_state(True)
+        self.root.quit()
+        self.root.destroy()
     
     def handle_failed_launch(self, error_msg):
         """Handle failed server launch"""
@@ -1181,17 +1313,12 @@ class InstagramAutoPoserInstaller:
         if platform.system() == "Windows":
             self.log_message("🔧 Windows debugging info:")
             
-            # Check if venv exists and is valid
-            venv_path = self.app_dir / "venv"
-            if venv_path.exists():
-                self.log_message("✅ Virtual environment found")
-                python_exe = venv_path / "Scripts" / "python.exe"
-                if python_exe.exists():
-                    self.log_message("✅ Python executable found in venv")
-                else:
-                    self.log_message("❌ Python executable missing from venv")
-            else:
-                self.log_message("❌ Virtual environment not found")
+            # Check system Python instead
+            try:
+                python_version = subprocess.run([sys.executable, "--version"], capture_output=True, text=True)
+                self.log_message(f"✅ System Python: {python_version.stdout.strip()}")
+            except:
+                self.log_message("❌ System Python check failed")
             
             # Check if app.py exists
             app_py = self.app_dir / "app.py"
@@ -1202,14 +1329,12 @@ class InstagramAutoPoserInstaller:
             
             # Check what's using port 5003
             try:
-                for conn in psutil.net_connections():
-                    if hasattr(conn, 'laddr') and conn.laddr and conn.laddr.port == 5003:
-                        try:
-                            proc = psutil.Process(conn.pid)
-                            self.log_message(f"⚠️ Port 5003 is being used by: {proc.name()} (PID: {conn.pid})")
-                        except:
-                            self.log_message(f"⚠️ Port 5003 is in use by unknown process")
-                        break
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex(('localhost', 5003))
+                sock.close()
+                if result == 0:
+                    self.log_message("⚠️ Port 5003 is already in use")
                 else:
                     self.log_message("ℹ️ Port 5003 is free")
             except Exception as e:
@@ -1317,7 +1442,7 @@ class InstagramAutoPoserInstaller:
         try:
             import webbrowser
             webbrowser.open("http://localhost:5003")
-            self.log_message("🌐 Opened browser to: http://localhost:5003")
+            self.log_message("✅ Opened browser to: http://localhost:5003")
         except Exception as e:
             self.log_message(f"❌ Failed to open browser: {str(e)}")
             messagebox.showerror("Error", f"Could not open browser:\n{str(e)}")
@@ -1553,6 +1678,70 @@ X-GNOME-Autostart-enabled=true
         finally:
             self.progress.stop()
             self.action_button.config(state="normal")
+
+    def launch_windows_fallback(self, python_cmd):
+        """Fallback Windows launch method without detached process"""
+        try:
+            self.log_message("🔧 Using simple Windows launch method...")
+            
+            # Use the simplest possible process creation
+            self.server_process = subprocess.Popen(
+                [python_cmd, "app.py"],
+                cwd=self.app_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            # Wait for startup with simple method
+            self.log_message("⏱️ Waiting for server startup...")
+            startup_success = False
+            
+            for attempt in range(15):  # Wait up to 30 seconds
+                time.sleep(2)
+                
+                # Check if process died early
+                if self.server_process.poll() is not None:
+                    stdout, stderr = self.server_process.communicate()
+                    error_output = stderr if stderr else stdout if stdout else "Unknown error"
+                    self.log_message(f"💀 Process failed: {error_output}")
+                    
+                    if "ModuleNotFoundError" in error_output or "ImportError" in error_output:
+                        self.log_message("🔄 Detected missing dependencies - attempting fix...")
+                        self.attempt_dependency_fix(python_cmd)
+                        return
+                    else:
+                        self.handle_failed_launch(f"Fallback method failed: {error_output}")
+                        return
+                
+                # Check if port is listening
+                port_listening = False
+                try:
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(1)
+                    result = sock.connect_ex(('localhost', 5003))
+                    sock.close()
+                    if result == 0:
+                        port_listening = True
+                except:
+                    pass
+                
+                if port_listening:
+                    startup_success = True
+                    self.log_message(f"✅ Fallback method succeeded after {(attempt + 1) * 2} seconds!")
+                    break
+                
+                self.log_message(f"⏳ Fallback waiting... ({attempt + 1}/15)")
+            
+            if startup_success:
+                self.handle_successful_launch()
+            else:
+                self.handle_failed_launch("Fallback method: Server started but port not accessible")
+                
+        except Exception as e:
+            self.log_message(f"❌ Fallback method also failed: {str(e)}")
+            self.handle_failed_launch(f"All Windows launch methods failed: {str(e)}")
 
 if __name__ == "__main__":
     app = InstagramAutoPoserInstaller()

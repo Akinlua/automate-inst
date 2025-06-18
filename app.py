@@ -1550,26 +1550,37 @@ def start_chrome_login_setup():
                     with open('.env', 'r') as f:
                         env_lines = f.readlines()
                 
+                # Ensure all lines end with newline (fix malformed lines)
+                for i, line in enumerate(env_lines):
+                    if not line.endswith('\n'):
+                        env_lines[i] = line + '\n'
+                
                 # Check if CHROME_PROFILE_PATH already exists
                 profile_path_exists = False
                 for i, line in enumerate(env_lines):
-                    if line.startswith('CHROME_PROFILE_PATH='):
-                        env_lines[i] = f'CHROME_PROFILE_PATH={profile_path}\n'
+                    if line.strip().startswith('CHROME_PROFILE_PATH='):
+                        env_lines[i] = f'\nCHROME_PROFILE_PATH={profile_path}\n'
                         profile_path_exists = True
                         break
                 
                 # Add CHROME_PROFILE_PATH if it doesn't exist
                 if not profile_path_exists:
-                    env_lines.append(f'CHROME_PROFILE_PATH={profile_path}\n')
+                    # Ensure the previous line ends with newline before adding new line
+                    if env_lines and not env_lines[-1].endswith('\n'):
+                        env_lines[-1] = env_lines[-1] + '\n'
+                    env_lines.append(f'\nCHROME_PROFILE_PATH={profile_path}\n')
                 
-                # Write back to .env file
+                # Write back to .env file with proper formatting
                 with open('.env', 'w') as f:
-                    f.writelines(env_lines)
+                    for line in env_lines:
+                        f.write(line)
                 
-                logger.info(f"Updated .env file with CHROME_PROFILE_PATH={profile_path}")
+                print(f"✅ Updated .env file with Chrome profile: {profile_path}")
+                return True
                 
             except Exception as e:
-                logger.error(f"Failed to update .env file: {e}")
+                print(f"❌ Error updating .env file: {str(e)}")
+                return False
         
         # Start Chrome setup in background thread
         setup_thread = threading.Thread(target=run_integrated_chrome_setup, daemon=True)

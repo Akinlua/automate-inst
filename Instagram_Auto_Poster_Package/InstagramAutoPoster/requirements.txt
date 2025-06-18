@@ -2,7 +2,6 @@ selenium
 Pillow
 python-dotenv
 schedule
-openai
 jiter
 distro
 requests

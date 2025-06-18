@@ -99,11 +99,11 @@ if exist "requirements.txt" (
     python -m pip install -r requirements.txt -q
     if !errorlevel! neq 0 (
         echo [WARNING] requirements.txt installation failed, trying alternative...
-        python -m pip install -q selenium Pillow python-dotenv schedule openai jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
+        python -m pip install -q selenium Pillow python-dotenv schedule jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
     )
 ) else (
     echo [INFO] Installing dependencies manually...
-    python -m pip install -q selenium Pillow python-dotenv schedule openai jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
+    python -m pip install -q selenium Pillow python-dotenv schedule jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
 )
 
 if !errorlevel! neq 0 (

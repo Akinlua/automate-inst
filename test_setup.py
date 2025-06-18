@@ -57,7 +57,6 @@ def test_dependencies():
         'PIL',  # Pillow
         'dotenv',  # python-dotenv
         'schedule',
-        'openai',
         'requests',
         'flask',
         'werkzeug',

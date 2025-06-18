@@ -217,11 +217,11 @@ install_dependencies() {
     if [[ -f "requirements.txt" ]]; then
         python -m pip install -r requirements.txt -q || {
             print_warning "requirements.txt installation failed, trying alternative..."
-            python -m pip install -q selenium Pillow python-dotenv schedule openai jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
+            python -m pip install -q selenium Pillow python-dotenv schedule jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
         }
     else
         print_status "Installing dependencies manually..."
-        python -m pip install -q selenium Pillow python-dotenv schedule openai jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
+        python -m pip install -q selenium Pillow python-dotenv schedule jiter distro requests flask werkzeug pytz psutil undetected-chromedriver setuptools selenium-driverless
     fi
     
     print_success "Dependencies installed successfully!"
